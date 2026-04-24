@@ -16,7 +16,7 @@
 - 上下文越来越长，噪声越来越多，后续质量越来越差
 - 简单任务误入重流程，浪费 token 和时间
 - 复杂任务缺少状态机保护，执行中途很容易跑偏
-- 阶段产物和恢复载荷不统一，导致 handoff / resume 很难稳定复用
+- 阶段产物和恢复载荷不统一，导致跨会话恢复与 handoff 很难稳定复用
 
 `Orbit` 想解决的不是“如何让模型更会说”，而是“如何让模型更可靠地做完一项开发任务”。
 
@@ -38,14 +38,14 @@
 - evaluator 负责客观闸门，而不是接管修复
 - 减少“重新交接给陌生修复者”带来的上下文损耗
 
-### 2. Handoff / Resume 是一等公民
+### 2. Handoff 与恢复载荷是一等公民
 
 当任务进入阶段边界，或者子代理执行中断时，必须有 handoff。
 
 这里需要区分两个概念：
 
-- `handoff`：用于子代理或任务级执行在异常中断后恢复继续执行
-- `resume`：用于 Claude Code 主会话在暂停或退出后恢复上下文
+- `handoff`：Orbit 产出的结构化恢复载荷，用于子代理或任务级执行在异常中断后继续
+- 官方恢复命令：主会话恢复仍交给 Claude Code 官方机制，Orbit 不注册 `resume` skill，避免命名冲突
 
 `handoff` 的职责不是写冗长会议纪要，而是只保留子代理恢复任务真正需要的信息：
 
@@ -117,9 +117,8 @@
 当前仓库已补充最小可执行内核：
 
 - 运行时最小状态 schema：`plugins/orbit/state/runtime-state-lite.schema.json`
-- 全量任务状态 schema：`plugins/orbit/state/task-state.schema.json`
-- 最小 gate 规则：`plugins/orbit/state/gates.json`
-- 统一工件槽位：`triage / scope / design / plan / execution / verification / review / handoff`
+- 运行时规则源：`plugins/orbit/state/rules.json`
+- 统一工件槽位：`triage / scope / design / plan / execution / verification / review / handoff / task_packet`
 - 约定式流程约束：通过 skill、提示词与阶段规则推进
 
 核心硬规则：
@@ -127,7 +126,7 @@
 - `density` 决定可进入阶段
 - `VERIFY_FAIL` / `REVIEW_FAIL` 只能回到 `repairing`
 - `repairing.current_owner` 必须等于 `first_executor`
-- `handoff` / `paused` 必须携带 `next_action`
+- `paused` 与 handoff payload 必须携带 `next_action`
 - 任意时刻只能有一个 `todo` 为 `in_progress`
 - v1 默认以 `todo + next_action` 作为主动作模型
 - `DESIGN_DONE` 前 `design.md` 必须含 `## User Approval` 锚点且 `approved_option` 非空
@@ -169,14 +168,14 @@ triaged -> designing -> planning -> executing -> verifying -> reviewing -> compl
 - evaluator 必须独立，避免实现者自评失真
 - 失败后默认让首次执行者继续修复
 - skill 决定流程阶段，agent 承担单次执行角色
-- 子代理 handoff 与主会话 resume 必须有明确边界
+- 子代理 handoff 与官方会话恢复机制必须有明确边界
 
 ### 来自 Get Shit Done 的精髓
 
 - 用状态文件作为短期工作内存
 - 用状态机守卫阶段推进
 - 用 Todo / Task 列表维护当前动作序列
-- 明确主会话 resume、子代理 handoff 恢复与偏航处理机制
+- 明确主会话恢复、子代理 handoff 与偏航处理机制
 - 尽可能从工件与事实重建状态，而不是只依赖口头声明
 
 ## Orbit 要避免的问题
@@ -189,15 +188,15 @@ triaged -> designing -> planning -> executing -> verifying -> reviewing -> compl
 - 过多历史命名导致阶段概念重叠
 - 没有 todo 层，导致状态机只描述阶段、不约束当前动
 
-## Marketplace 仓库落地方式
+## 插件仓库落地方式
 
-为了采用官方 marketplace 机制实现，`Orbit` 现在被组织为一个 **插件市场仓库**，而不是单个插件仓库。
+`Orbit` 现在被组织为一个 Claude Code 插件目录，核心实现位于 `plugins/orbit/`。
 
 ### 仓库结构
 
 ```text
 Orbit/
-├─ .claude-plugin/marketplace.json
+├─ README.md
 └─ plugins/
    └─ orbit/
       ├─ .claude-plugin/plugin.json
@@ -207,7 +206,6 @@ Orbit/
 ```
 其中：
 
-- `marketplace.json`：市场索引，声明该仓库提供哪些插件
 - `plugins/orbit/.claude-plugin/plugin.json`：`orbit` 插件自己的清单
 - `skills/`：提供流程入口，例如 triage、design、execute、verify
 - `agents/`：提供 executor / evaluator 等单次执行角色
@@ -215,25 +213,11 @@ Orbit/
 
 ### 安装思路
 
-当该仓库被发布为一个 Claude Code marketplace 后，用户先添加 marketplace，再从其中安装 `orbit` 插件。
-
-如果是本地联调，可直接把本仓库作为 marketplace 源；如果是团队内部分发，可将其挂到私有 marketplace。
-
-这意味着当前仓库的职责是：
-
-- 作为 marketplace 承载多个插件的分发入口
-- 把 `Orbit` 工作流能力作为其中一个插件提供出去
-- 允许后续继续加入其他 workflow、tooling 或 domain 插件
-
-## 当前市场内容
-
-当前 marketplace 先收录一个插件：
+当前仓库先收录一个插件：
 
 - `orbit`：任务执行工作流内核插件
 
-市场索引位于 `.claude-plugin/marketplace.json`，插件主体位于 `plugins/orbit/`。
-
-当前实现不再依赖本地脚本做状态机守卫或自动落盘，而是采用轻量状态协议、声明式 gate、skill 约束与人工抽查来保证流程一致性。
+插件主体位于 `plugins/orbit/`。当前实现采用轻量状态协议、声明式 gate、skill 约束与本地校验脚本共同保证流程一致性。
 
 ## 当前骨架映射
 
@@ -247,15 +231,14 @@ Orbit/
 - `verify`：验证阶段入口
 - `reviewing`：high 任务的 reviewing 阶段
 - `handoff`：子代理或任务级执行的恢复交接入口
-- `resume`：主会话恢复入口
 - `executor`：单次任务执行者
 - `evaluator`：独立评估者
 
-当前实现已覆盖 low / medium / high 的主要阶段、handoff / resume 的恢复入口，以及最小状态机守卫能力。
+当前实现已覆盖 low / medium / high 的主要阶段、handoff 恢复载荷，以及最小状态机守卫能力。
 
 同时，v1 额外引入：
 - `runtime-state-lite.schema.json` 作为最小运行时状态协议
-- `gates.json` 作为最小 gate 规则集
+- `rules.json` 作为最小 gate 与阶段转换规则集
 - 面向最小运行时的正反样例，用于表达恢复、修复与非法状态
 
 ## 当前已落地的运行时能力
@@ -266,10 +249,10 @@ Orbit/
 - FAIL 必须进入 `repairing`
 - `repairing` 的执行者必须是 `first_executor`
 
-### 2. 阶段性 handoff / resume
+### 2. 阶段性 handoff / 恢复
 
 - `handoff` 产出结构化恢复载荷
-- `resume` 按工件优先级恢复上下文
+- 后续会话按工件优先级恢复上下文，优先读取 `handoff.json`
 - `next_action` 是恢复的强制字段
 
 ### 3. low / medium / high 差异化工作流
@@ -286,4 +269,4 @@ Orbit/
 
 ## 一句话总结
 
-`Orbit` 不是一个“更多命令”的插件，而是一个通过 marketplace 机制分发、让 Claude Code 围绕任务稳定运转的工作流内核。
+`Orbit` 不是一个“更多命令”的插件，而是一个让 Claude Code 围绕任务稳定运转的工作流内核。

@@ -6,7 +6,7 @@
 
 - 基于思考密度的 low / medium / high 路由
 - executor / evaluator 分离，修复固定回首次执行者
-- 以 handoff / resume 为中心的跨会话恢复
+- 以 handoff 恢复载荷为中心的跨会话恢复
 - 以 skills、agents、轻量规则文件组合实现的工作流骨架
 - 以 `runtime-state-lite`、阶段规则、最小 gate 与**文件化 SSOT**驱动的状态机内核
 - 以 **TodoWrite** 作为 stage 执行的源权威，实现"状态机 × 待办"的双向约束
@@ -17,11 +17,11 @@
 plugins/orbit/
 ├─ .claude-plugin/plugin.json
 ├─ skills/
+│  ├─ references/common-runtime-patterns.md  # 公共持久化/TodoWrite 模式
 │  └─ <skill>/
-│     ├─ SKILL.md           # 触发语 + 路由 + 核心约束 + 输出字段
-│     └─ references/*.md    # 查阅型细节：dispatch 模板、完整流程等（按需 Read）
+│     └─ SKILL.md           # 触发语 + 路由 + 阶段特有约束 + 输出字段 + 退出自检
 ├─ agents/                  # executor / evaluator / spec-compliance / code-quality
-└─ state/                   # schema + gates + transition-rules + examples
+└─ state/                   # runtime-state-lite（唯一 schema） + rules + examples
 ```
 
 ## 当前内置能力
@@ -34,7 +34,6 @@ plugins/orbit/
 - `verify`
 - `reviewing`
 - `handoff`
-- `resume`
 - `executor`（subagent）
 - `evaluator`（subagent，verify 阶段使用）
 - `spec-compliance-evaluator`（subagent，reviewing 第一阶段）
@@ -42,19 +41,20 @@ plugins/orbit/
 
 ## 任务状态模型
 
-运行时状态使用 `state/runtime-state-lite.schema.json`；核心字段：
+运行时状态使用 `state/runtime-state-lite.schema.json`（v1 唯一权威 schema）；核心字段：
 
 - `task_id`、`density`、`stage`、`status`
 - `first_executor`、`current_owner`
 - `goal`、`next_action`、`last_event`
 - `artifacts`（统一槽位）、`todo[]`
-- `verification_level`、`repair_direction`
+- `triage_result`（简化为 decision_path + density + rationale）
+- `verification_level`、`repair_direction`、`verify_fail_streak`
 
-`task-state.schema.json` 作为全量协议保留。
+运行时状态以 `runtime-state-lite.schema.json` 为唯一权威 schema。
 
 ### 阶段枚举
 
-`triaged / scoping / designing / planning / executing / verifying / reviewing / repairing / handoff / paused / completed / cancelled`
+`triaged / scoping / designing / planning / executing / verifying / reviewing / repairing / paused / completed / cancelled`
 
 ### 密度与阶段约束
 
@@ -73,7 +73,7 @@ plugins/orbit/
 
 - `VERIFY_FAIL` / `REVIEW_FAIL` 只能进入 `repairing`
 - `repairing.current_owner` 必须等于 `first_executor`
-- `handoff` / `paused` 必须带 `next_action`
+- `paused` 与 handoff payload 必须带 `next_action`
 - 任意时刻只能有一个 `todo` 处于 `in_progress`
 - 连续 2 轮 review 仍失败必须停止自动循环，用 AskUserQuestion 让用户决策（升级 / 重设 / 取消）
 - 连续 verify FAIL 达到 `limits.consecutive_verify_fail_limit`（默认 3）必须停止循环，用 AskUserQuestion 让用户决定升级 / 重设方案 / 取消
@@ -102,7 +102,7 @@ plugins/orbit/
 ```
 .orbit/state/<task_id>/
 ├─ runtime.json          # runtime-state-lite，每次 skill 结束时回写
-├─ handoff.json          # 存在时为恢复最高优先级源
+├─ handoff.json          # 存在时为后续会话恢复最高优先级源
 ├─ triage.md
 ├─ scope.md
 ├─ design.md
@@ -147,11 +147,17 @@ plugins/orbit/
 - executor 四态：`DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED`
 - `NEEDS_CONTEXT` 禁止用同一 prompt 重试；`BLOCKED` 必须附 `blocker_root_cause`
 
-### Handoff / resume
+### Handoff / 恢复
 
 - `handoff` 触发：上下文预算临近 / 子代理边界 / 人工暂停 / 评估失败保留现场 / 大阶段切换
-- `handoff` 是恢复载荷，不是长总结
+- `handoff` 是恢复载荷，不是长总结（schema 精简为 7 个必填字段）
 - 子代理返回的 `handoff_payload` 由 handoff skill 合并进父 runtime
+- Orbit 不注册 `resume` skill，避免与 Claude Code 官方恢复命令冲突；后续会话恢复直接读取 `.orbit/state/<task_id>/` 工件
+
+### Skill 公共模式
+
+- `skills/references/common-runtime-patterns.md` 抽取了状态持久化、TodoWrite 绑定和原生工具集成的公共规则
+- 各 SKILL.md 通过"运行时契约"段引用公共模式，仅描述本阶段特有差异
 
 ### TodoWrite 与 runtime.todo[] 的双层语义
 
@@ -162,17 +168,23 @@ plugins/orbit/
   - 阶段内任意一项状态变化（`pending` / `in_progress` / `done`），**先更新 TodoWrite，再同步回写 `runtime.todo[]`**
   - 任意时刻只能有一个 `in_progress`
   - 完成立刻 `done`；evaluator 返回的 `repair_actions` 立刻逐条追加为新 todo
-  - **resume 时反向重建**：由 `runtime.todo[]` 重建当前会话的 TodoWrite，不从历史对话里回忆
+  - **后续会话恢复时反向重建**：由 `runtime.todo[]` 重建当前会话的 TodoWrite，不从历史对话里回忆
   - 当两者冲突，以 `runtime.todo[]` 为准（持久源胜出），并在重建后同步 TodoWrite
 
 ## 本地自检
 
-可通过以下抽查验证流程一致性：
+运行零依赖状态校验：
+
+```bash
+node plugins/orbit/scripts/validate-orbit-state.mjs
+```
+
+脚本会检查 `runtime-state-lite.schema.json`、`rules.json` 与 `state/examples/` 的一致性。也可通过以下抽查验证流程一致性：
 
 - 阶段推进是否满足 `density`
 - 失败后是否统一回到 `repairing`
 - 修复执行者是否保持为 `first_executor`
-- `handoff` / `paused` 是否明确 `next_action`
+- `paused` 与 handoff payload 是否明确 `next_action`
 - todo 是否只存在一个 `in_progress`
 - `verification` / `review` 结论是否来自独立 evaluator subagent
 - dispatch subagent 时 task_packet 是否完整注入

@@ -1,16 +1,22 @@
 {
   "task_id": "T-RUNTIME-BAD-OWNER",
-  "title": "invalid runtime lite repair owner",
+  "title": "invalid repair owner",
   "density": "medium",
   "stage": "repairing",
   "status": "active",
-  "goal": "Repair a failed verification result",
+  "goal": "修复验证失败的缺口",
   "first_executor": "executor-a",
   "current_owner": "executor-b",
-  "next_action": "Apply repair direction",
+  "next_action": "修复验证缺口",
   "last_event": "VERIFY_FAIL",
   "verification_level": "required",
-  "repair_direction": "Return to first executor and close verification gaps",
+  "repair_direction": "补充对 null 输入的防御检查",
+  "verify_fail_streak": 1,
+  "triage_result": {
+    "decision_path": "Q2",
+    "density": "medium",
+    "rationale": "需先收敛边界"
+  },
   "artifacts": {
     "triage": "artifacts/T-RUNTIME-BAD-OWNER/triage.md",
     "scope": "artifacts/T-RUNTIME-BAD-OWNER/scope.md",
@@ -20,12 +26,12 @@
     "verification": "artifacts/T-RUNTIME-BAD-OWNER/verification.md",
     "review": null,
     "handoff": null,
-    "task_packet": "artifacts/T-RUNTIME-BAD-OWNER/task-packet.json"
+    "task_packet": null
   },
   "todo": [
     {
       "id": "t1",
-      "text": "Apply repair direction",
+      "text": "修复验证缺口",
       "status": "in_progress"
     }
   ]

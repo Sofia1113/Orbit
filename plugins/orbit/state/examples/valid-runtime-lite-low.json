@@ -4,13 +4,18 @@
   "density": "low",
   "stage": "executing",
   "status": "active",
-  "goal": "Rename a known response field",
+  "goal": "将响应字段从 token 改为 access_token",
   "first_executor": "executor-a",
   "current_owner": "executor-a",
-  "next_action": "Rename response field and update dependent test",
+  "next_action": "修改响应字段并更新测试",
   "last_event": "TRIAGE_DONE",
   "verification_level": "optional",
   "repair_direction": null,
+  "triage_result": {
+    "decision_path": "Q3",
+    "density": "low",
+    "rationale": "目标明确、单文件改动、无设计分歧"
+  },
   "artifacts": {
     "triage": "artifacts/T-RUNTIME-LOW-001/triage.md",
     "scope": null,
@@ -20,12 +25,12 @@
     "verification": null,
     "review": null,
     "handoff": null,
-    "task_packet": "artifacts/T-RUNTIME-LOW-001/task-packet.json"
+    "task_packet": null
   },
   "todo": [
     {
       "id": "t1",
-      "text": "Rename response field and update dependent test",
+      "text": "修改响应字段并更新测试",
       "status": "in_progress"
     }
   ]

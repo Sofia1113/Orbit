@@ -1,17 +1,22 @@
 {
   "task_id": "T-BAD-OWNER",
-  "title": "invalid repair owner",
+  "title": "invalid repair wrong owner",
   "density": "medium",
   "stage": "repairing",
   "status": "active",
+  "goal": "修复验证失败",
   "first_executor": "executor-a",
-  "current_owner": "executor-b",
-  "evaluator": "evaluator-a",
-  "source_stage_before_handoff": null,
-  "last_active_stage": "verifying",
-  "goal": "Repair after failed verification",
-  "scope": "repair flow",
-  "acceptance_criteria": ["repair owner matches first executor"],
+  "current_owner": "evaluator-b",
+  "next_action": "修复缺口",
+  "last_event": "VERIFY_FAIL",
+  "verification_level": "required",
+  "repair_direction": "补充边界测试用例",
+  "verify_fail_streak": 1,
+  "triage_result": {
+    "decision_path": "Q2",
+    "density": "medium",
+    "rationale": "需要收敛边界"
+  },
   "artifacts": {
     "triage": "artifacts/T-BAD-OWNER/triage.md",
     "scope": "artifacts/T-BAD-OWNER/scope.md",
@@ -23,91 +28,10 @@
     "handoff": null,
     "task_packet": null
   },
-  "triage_result": {
-    "intent_type": "bugfix",
-    "complexity_score": 6,
-    "density_reasons": ["需要修复验证缺口"],
-    "routing_confidence": "high",
-    "selected_workflow": "medium",
-    "required_stages": ["triaged", "scoping", "executing", "verifying", "repairing", "completed"],
-    "verification_level": "required",
-    "scores": {
-      "scope_breadth": 1,
-      "requirement_clarity": 1,
-      "design_uncertainty": 1,
-      "state_recovery_need": 1,
-      "validation_risk": 1,
-      "coordination_complexity": 1
-    },
-    "hard_rules_triggered": [],
-    "request_summary": "Fix a failed verification result",
-    "workflow_path": ["triaged", "scoping", "executing", "verifying", "repairing", "completed"],
-    "required_artifacts": ["triage", "scope", "execution", "verification"],
-    "why_not_lower": "需要 required verification"
-  },
-  "action_layer": {
-    "actions": [
-      {
-        "id": "a1",
-        "title": "Apply repair direction",
-        "description": "Repair the failing verification gap",
-        "status": "in_progress",
-        "kind": "implementation",
-        "owner": "executor",
-        "stage": "repairing",
-        "depends_on": [],
-        "produces": ["artifacts.execution"],
-        "acceptance_signal": "verification gap is closed",
-        "source": "repair_direction",
-        "updated_at": "2026-04-19T16:00:00Z"
-      }
-    ],
-    "current_action_id": "a1",
-    "next_action_id": "a1"
-  },
-  "shared_context": {
-    "task_summary": "Repair verification failure",
-    "acceptance_contract": ["Only the first executor may repair"],
-    "current_focus": "Fix the failing verification gap"
-  },
-  "resume_context": {
-    "resume_priority_used": null,
-    "restored_from_artifacts": [],
-    "resume_brief": "",
-    "last_resume_at": null
-  },
-  "handoff_meta": {
-    "handoff_version": "1",
-    "handoff_status": "none",
-    "handoff_source_stage": null,
-    "handoff_for_role": null,
-    "summary_path": null,
-    "handoff_reason": null
-  },
-  "review_state": {
-    "review_required": false,
-    "review_cycle": 0
-  },
-  "verification_state": {
-    "verification_required": true,
-    "verification_level": "required",
-    "verification_cycle": 1,
-    "last_verdict": "FAIL"
-  },
-  "rebuild_info": {
-    "state_rebuildable": true,
-    "rebuild_sources": ["verification"]
-  },
-  "decision_log": [],
-  "blockers": [],
-  "risks": [],
-  "next_action": "Apply repair direction",
-  "last_event": "VERIFY_FAIL",
-  "repair_direction": "Return to first executor and close verification gaps",
   "todo": [
     {
-      "id": "a1",
-      "text": "Apply repair direction",
+      "id": "t1",
+      "text": "补充边界测试",
       "status": "in_progress"
     }
   ]

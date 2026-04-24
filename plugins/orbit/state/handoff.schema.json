@@ -1,65 +1,80 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://orbit.local/handoff.schema.json",
-  "title": "Orbit Handoff Payload",
+  "title": "Orbit Handoff Payload（v1 精简版）",
+  "description": "跨会话 / 跨子代理恢复载荷。核心 7 字段必填，其余为可选上下文。",
   "type": "object",
   "required": [
-    "version",
     "task_id",
     "density",
     "stage",
     "status",
-    "source_stage",
-    "handoff_reason",
     "task_summary",
     "current_focus",
-    "next_action",
-    "actions",
-    "decisions",
-    "blockers",
-    "risks",
-    "artifacts",
-    "resume_order_hint",
-    "resume_brief"
+    "next_action"
   ],
   "properties": {
-    "version": { "type": "string", "minLength": 1 },
     "task_id": { "type": "string", "minLength": 1 },
+    "parent_task_id": {
+      "type": ["string", "null"],
+      "description": "子任务时指向父任务"
+    },
     "density": { "enum": ["low", "medium", "high"] },
     "stage": { "type": "string", "minLength": 1 },
     "status": { "enum": ["active", "paused", "completed", "cancelled"] },
-    "source_stage": { "type": "string", "minLength": 1 },
-    "handoff_reason": { "type": "string", "minLength": 1 },
     "task_summary": { "type": "string", "minLength": 1 },
     "current_focus": { "type": "string", "minLength": 1 },
-    "next_action": {
-      "type": "object",
-      "required": ["id", "text", "owner", "status"],
-      "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "text": { "type": "string", "minLength": 1 },
-        "owner": { "type": "string", "minLength": 1 },
-        "status": { "type": "string", "minLength": 1 }
-      },
-      "additionalProperties": false
+    "next_action": { "type": "string", "minLength": 1 },
+    "source_stage": {
+      "type": "string",
+      "description": "handoff 触发时所处阶段"
     },
-    "actions": {
-      "type": "object",
-      "required": ["in_progress", "ready", "blocked", "done"],
-      "properties": {
-        "in_progress": { "type": ["string", "null"] },
-        "ready": { "type": "array", "items": { "type": "string" } },
-        "blocked": { "type": "array", "items": { "type": "string" } },
-        "done": { "type": "array", "items": { "type": "string" } }
-      },
-      "additionalProperties": false
+    "handoff_reason": {
+      "type": "string",
+      "description": "触发原因：context_limit / subagent_boundary / pause / fail_retain / stage_switch"
     },
-    "decisions": { "type": "array", "items": { "type": "object" } },
-    "blockers": { "type": "array", "items": { "type": "object" } },
-    "risks": { "type": "array", "items": { "type": "object" } },
-    "artifacts": { "type": "object" },
-    "resume_order_hint": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
-    "resume_brief": { "type": "string", "minLength": 1 }
+    "recovery_brief": {
+      "type": "string",
+      "description": "供后续会话恢复时直接消费的最小恢复摘要"
+    },
+    "artifacts": {
+      "type": "object",
+      "description": "工件路径映射，键名对应 runtime.artifacts 槽位"
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "properties": {
+          "id": { "type": "string" },
+          "text": { "type": "string" }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "properties": {
+          "id": { "type": "string" },
+          "text": { "type": "string" }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "decision"],
+        "properties": {
+          "id": { "type": "string" },
+          "decision": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    }
   },
   "additionalProperties": false
 }

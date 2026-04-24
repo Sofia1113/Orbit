@@ -45,6 +45,6 @@ maxTurns: 20
 7. artifact_written：`execution`
 8. next_event：`EXECUTION_DONE` / `REPAIR_SUBMITTED` / `NEEDS_CONTEXT` / `BLOCKED`
 9. next_action
-10. handoff_payload：必须符合 `handoff.schema.json`
+10. handoff_payload：必须符合 `handoff.schema.json`（v1 精简：task_id、density、stage、status、task_summary、current_focus、next_action 必填）
 11. concerns：当 status 为 `DONE_WITH_CONCERNS` 时必填
 12. blocker_root_cause：当 status 为 `BLOCKED` 时必填

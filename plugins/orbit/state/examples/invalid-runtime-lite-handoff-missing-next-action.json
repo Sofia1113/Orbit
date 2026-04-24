@@ -1,16 +1,21 @@
 {
   "task_id": "T-RUNTIME-BAD-HANDOFF",
-  "title": "invalid runtime lite handoff missing next action",
+  "title": "invalid handoff missing next action",
   "density": "medium",
-  "stage": "handoff",
+  "stage": "paused",
   "status": "active",
-  "goal": "Pause a scoped task for later resume",
+  "goal": "暂停 scoped 任务待后续恢复",
   "first_executor": "executor-a",
   "current_owner": "executor-a",
   "next_action": "",
   "last_event": "HANDOFF_SAVED",
   "verification_level": "required",
   "repair_direction": null,
+  "triage_result": {
+    "decision_path": "Q2",
+    "density": "medium",
+    "rationale": "需先收敛边界"
+  },
   "artifacts": {
     "triage": "artifacts/T-RUNTIME-BAD-HANDOFF/triage.md",
     "scope": "artifacts/T-RUNTIME-BAD-HANDOFF/scope.md",
@@ -20,12 +25,12 @@
     "verification": null,
     "review": null,
     "handoff": "artifacts/T-RUNTIME-BAD-HANDOFF/handoff.json",
-    "task_packet": "artifacts/T-RUNTIME-BAD-HANDOFF/task-packet.json"
+    "task_packet": null
   },
   "todo": [
     {
       "id": "t1",
-      "text": "Continue implementation after resume",
+      "text": "恢复后继续实现",
       "status": "pending"
     }
   ]

@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://orbit.local/rules.json",
+  "title": "Orbit Rules（合并 gates + transition-rules）",
+  "description": "阶段路径、事件转换、闸门、密度变化、子任务、评估者派发、持久化规则与硬规则的唯一权威源。",
+
+  "density_stage_paths": {
+    "low": ["triaged", "executing", "verifying", "completed"],
+    "medium": ["triaged", "scoping", "executing", "verifying", "completed"],
+    "high": ["triaged", "designing", "planning", "executing", "verifying", "reviewing", "completed"]
+  },
+
+  "event_stage_transitions": {
+    "TRIAGE_DONE": { "low": "executing", "medium": "scoping", "high": "designing" },
+    "SCOPE_DONE": "executing",
+    "DESIGN_DONE": "planning",
+    "PLAN_DONE": "executing",
+    "EXECUTION_DONE": "verifying",
+    "VERIFY_PASS": { "low": "completed", "medium": "completed", "high": "reviewing" },
+    "VERIFY_FAIL": "repairing",
+    "REVIEW_PASS": "completed",
+    "REVIEW_FAIL": "repairing",
+    "REPAIR_SUBMITTED": "verifying",
+    "HANDOFF_SAVED": "__preserve_current_stage__",
+    "PAUSE": "paused",
+    "CANCEL": "cancelled",
+    "COMPLETE": "completed",
+    "ESCALATE_DENSITY": { "medium": "designing", "low": "scoping" },
+    "DOWNGRADE_DENSITY": { "high": "scoping", "medium": "executing" },
+    "SUBTASK_SPAWNED": "executing",
+    "SUBTASK_COMPLETED": "executing"
+  },
+
+  "gates": {
+    "gate_order": ["preflight", "revision", "escalation"],
+    "preflight": {
+      "description": "阶段推进前必须满足的前置条件。",
+      "rules": [
+        "TRIAGE_DONE 后的目标阶段必须属于当前 density 的合法路径",
+        "DESIGN_DONE 前 design.md 必须包含 ## User Approval 锚点且 approved_option 非空",
+        "EXECUTION_DONE 前必须已有 execution artifact 或明确 changes_made",
+        "VERIFY_PASS 或 VERIFY_FAIL 前必须已有 verification artifact",
+        "VERIFY_PASS / VERIFY_FAIL 必须由独立 evaluator subagent 返回，不得由 verify skill 自评",
+        "VERIFY_PASS 前 verification.md 必须包含 ## Evaluator Verdict 锚点且 result=PASS",
+        "REVIEW_PASS 必须经过 spec-compliance 与 code-quality 两阶段 evaluator 均 PASS",
+        "REVIEW_PASS 前 review.md 必须同时包含 ## Spec Compliance Verdict 与 ## Code Quality Verdict 锚点且均 result=PASS",
+        "HANDOFF_SAVED 前必须提供 next_action 与 handoff artifact，且不得改变当前 stage",
+        "dispatch subagent 前 controller 必须完整注入 task_packet + scene，禁止让 subagent 读文件",
+        "DOWNGRADE_DENSITY 只能在 scoping / designing / planning 期间发起",
+        "ESCALATE_DENSITY 允许在 scoping / designing / planning / executing 期间发起；在 executing 发起时必须先产出迁移 handoff（handoff_reason='escalate_density'）再切换到新 density 入口阶段"
+      ]
+    },
+    "revision": {
+      "description": "评估失败后必须回原执行者修复，不允许直接完成。",
+      "rules": [
+        "VERIFY_FAIL 与 REVIEW_FAIL 只能进入 repairing",
+        "repairing 阶段 current_owner 必须等于 first_executor",
+        "REPAIR_SUBMITTED 后只能回到 verifying",
+        "evaluator 不得接管修复",
+        "每次 FAIL 的 repair_actions 必须逐条落到 TodoWrite"
+      ]
+    },
+    "escalation": {
+      "description": "缺少上下文、存在外部阻塞或连续修复不收敛时停止自动推进。",
+      "rules": [
+        "缺少 task_packet 或 handoff 关键字段时不得假设继续执行",
+        "需要人工决策、外部依赖或边界不清时升级为 escalation",
+        "连续 2 轮 review 仍失败时必须停止自动循环，用 AskUserQuestion 让用户选择升级 density / 重设方案 / 取消任务",
+        "连续 verify FAIL 达到 consecutive_verify_fail_limit 时必须停止自动循环，用 AskUserQuestion 让用户选择升级 density / 重设方案 / 取消任务",
+        "executor 返回 BLOCKED 时必须附带 blocker_root_cause 并由 controller 决定换策略",
+        "executor 返回 NEEDS_CONTEXT 时 controller 必须补齐上下文后再 dispatch，不得重试同一 prompt",
+        "DONE_WITH_CONCERNS 允许进入 verifying，但 concerns 必须逐条落入 TodoWrite"
+      ]
+    }
+  },
+
+  "verification": {
+    "level_defaults": { "low": "optional", "medium": "required", "high": "required_plus_review" },
+    "allow_upgrade": true,
+    "allow_downgrade": false,
+    "downgrade_rationale": "风险上调永远允许（optional→required→required_plus_review），下调禁止，避免绕过独立评估"
+  },
+
+  "density_change_rules": {
+    "escalate_requires": [
+      "当前 stage 属于 scoping / designing / planning / executing",
+      "必须更新 triage_result 并记录升级原因",
+      "必须清理已无效的工件引用",
+      "若在 executing 发起：必须先产出迁移 handoff（handoff_reason='escalate_density'，source_stage='executing'），再切换到新 density 的入口阶段（low→scoping，medium→designing）"
+    ],
+    "downgrade_requires": [
+      "当前 stage 属于 scoping / designing / planning",
+      "所有已产出工件仍对新 density 有效，或显式声明废弃",
+      "首次执行者不变"
+    ],
+    "escalate_forbidden_after": ["verifying", "reviewing", "repairing"],
+    "downgrade_forbidden_after": ["executing", "verifying", "reviewing", "repairing"]
+  },
+
+  "subtask_rules": {
+    "parent_density_must_be": "high",
+    "subtask_default_density": "medium",
+    "task_id_convention": "<parent_task_id>.<n>",
+    "require_injected_task_packet": true,
+    "parent_cannot_complete_before_all_subtasks_verified": true
+  },
+
+  "evaluator_dispatch_rules": {
+    "verify_requires_independent_evaluator": true,
+    "review_requires_two_stage_evaluator": ["spec_compliance", "code_quality"],
+    "evaluator_cannot_repair": true,
+    "repair_owner_must_equal_first_executor": true,
+    "consecutive_review_fail_limit": 2
+  },
+
+  "persistence": {
+    "runtime_file": ".orbit/state/<task_id>/runtime.json",
+    "state_persistence_root": ".orbit/state/<task_id>/",
+    "subtask_isolated": true,
+    "write_timing": "每个 skill 在结束时回写 runtime.json，同时更新对应工件文件",
+    "recovery_priority": ["handoff.json", "runtime.json", "最近失败 review.md", "最近失败 verification.md", "最近 execution.md", "其他 artifact", "历史描述"],
+    "gitignore_on_init": "*"
+  },
+
+  "limits": {
+    "consecutive_verify_fail_limit": 3,
+    "consecutive_review_fail_limit": 2,
+    "streak_semantics": "verify_fail_streak 在 REPAIR_SUBMITTED 后 +1，VERIFY_PASS 归零；review 循环由 reviewing skill 记录独立计数"
+  },
+
+  "hard_rules": {
+    "repairing_owner_must_equal_first_executor": true,
+    "handoff_requires_next_action": true,
+    "paused_requires_next_action": true,
+    "single_in_progress_todo": true,
+    "todo_write_is_source_of_truth_per_stage": true,
+    "controller_must_inject_full_task_packet_to_subagent": true,
+    "evaluator_must_be_independent_subagent": true,
+    "evaluator_cannot_repair": true,
+    "verify_streak_over_limit_forces_user_decision": true,
+    "density_downgrade_forbidden_after_execution": true
+  }
+}

@@ -1,7 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://orbit.local/runtime-state-lite.schema.json",
-  "title": "Orbit Runtime State Lite",
+  "title": "Orbit Runtime State Lite（v1 唯一运行时 schema）",
+  "description": "每个任务 runtime.json 的权威契约，v1 唯一运行时 schema。",
   "type": "object",
   "required": [
     "task_id",
@@ -30,7 +31,6 @@
         "verifying",
         "reviewing",
         "repairing",
-        "handoff",
         "paused",
         "completed",
         "cancelled"
@@ -55,7 +55,6 @@
         "REVIEW_FAIL",
         "REPAIR_SUBMITTED",
         "HANDOFF_SAVED",
-        "RESUME_RESTORED",
         "PAUSE",
         "CANCEL",
         "COMPLETE",
@@ -74,6 +73,23 @@
       "type": "integer",
       "minimum": 0,
       "description": "连续 verify FAIL 次数；REPAIR_SUBMITTED 后 +1，VERIFY_PASS 归零。>= consecutive_verify_fail_limit 时停止循环，用 AskUserQuestion 让用户决策。"
+    },
+    "triage_result": {
+      "type": "object",
+      "required": ["decision_path", "density", "rationale"],
+      "properties": {
+        "decision_path": {
+          "enum": ["Q1", "Q2", "Q3"],
+          "description": "决策树路径：Q1=需要方案比较(high), Q2=需要收敛边界(medium), Q3=目标明确(low)"
+        },
+        "density": { "enum": ["low", "medium", "high"] },
+        "rationale": { "type": "string", "minLength": 1 },
+        "hard_rules_triggered": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
     },
     "artifacts": {
       "type": "object",
@@ -121,7 +137,7 @@
       "then": { "required": ["repair_direction"] }
     },
     {
-      "if": { "properties": { "stage": { "enum": ["handoff", "paused"] } } },
+      "if": { "properties": { "stage": { "const": "paused" } } },
       "then": { "required": ["next_action"] }
     },
     {
