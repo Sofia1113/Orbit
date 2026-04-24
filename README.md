@@ -1,5 +1,9 @@
 # Orbit
 
+<p align="center">
+  <img src="orbit-banner.svg" width="800" alt="Orbit Banner">
+</p>
+
 面向 Claude Code 的通用工作流插件。
 
 `Orbit` 的目标不是提供一堆零散命令，而是为 Claude Code 提供一套**可重复、可恢复、可评估、可分层**的任务执行内核，让模型在复杂软件工程任务里更稳定地规划、实现、验证与交接。

@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" width="1200" height="480">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f0f1a"/>
+      <stop offset="100%" stop-color="#1a1a2e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#00d4aa"/>
+      <stop offset="100%" stop-color="#00b4d8"/>
+    </linearGradient>
+    <linearGradient id="accent2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#00d4aa"/>
+    </linearGradient>
+    <linearGradient id="accent3" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#ef4444"/>
+    </linearGradient>
+
+    <!-- Glow filter -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glowStrong">
+      <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Stage dot gradient -->
+    <radialGradient id="dotGrad">
+      <stop offset="0%" stop-color="#00d4aa"/>
+      <stop offset="100%" stop-color="#007a6a"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="480" fill="url(#bg)" rx="16"/>
+
+  <!-- Grid pattern -->
+  <g opacity="0.03">
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#00d4aa" stroke-width="0.5"/>
+    </pattern>
+    <rect width="1200" height="480" fill="url(#grid)"/>
+  </g>
+
+  <!-- Orbital rings -->
+  <g transform="translate(240, 240)" opacity="0.15">
+    <circle cx="0" cy="0" r="90" fill="none" stroke="#00d4aa" stroke-width="1"/>
+    <circle cx="0" cy="0" r="150" fill="none" stroke="#00b4d8" stroke-width="1" stroke-dasharray="4,6"/>
+    <circle cx="0" cy="0" r="210" fill="none" stroke="#7c3aed" stroke-width="1" stroke-dasharray="2,8"/>
+  </g>
+
+  <!-- Orbiting dots -->
+  <g opacity="0.3">
+    <circle cx="240" cy="150" r="4" fill="#00d4aa" filter="url(#glow)"/>
+    <circle cx="390" cy="240" r="4" fill="#00b4d8" filter="url(#glow)"/>
+    <circle cx="240" cy="330" r="4" fill="#7c3aed" filter="url(#glow)"/>
+  </g>
+
+  <!-- Center icon: orbital atom -->
+  <g transform="translate(240, 240)">
+    <!-- Nucleus -->
+    <circle cx="0" cy="0" r="16" fill="url(#accent)" opacity="0.3" filter="url(#glowStrong)"/>
+    <circle cx="0" cy="0" r="10" fill="url(#accent)" opacity="0.6"/>
+    <circle cx="0" cy="0" r="4" fill="#fff" opacity="0.9"/>
+
+    <!-- Orbital ellipse 1 -->
+    <ellipse cx="0" cy="0" rx="55" ry="20" fill="none" stroke="#00d4aa" stroke-width="2" transform="rotate(-30)" opacity="0.7"/>
+    <circle cx="48" cy="28" r="5" fill="#00d4aa" filter="url(#glow)"/>
+
+    <!-- Orbital ellipse 2 -->
+    <ellipse cx="0" cy="0" rx="55" ry="20" fill="none" stroke="#00b4d8" stroke-width="2" transform="rotate(90)" opacity="0.7"/>
+    <circle cx="0" cy="-55" r="5" fill="#00b4d8" filter="url(#glow)"/>
+
+    <!-- Orbital ellipse 3 -->
+    <ellipse cx="0" cy="0" rx="55" ry="20" fill="none" stroke="#7c3aed" stroke-width="2" transform="rotate(210)" opacity="0.7"/>
+    <circle cx="-48" cy="28" r="5" fill="#7c3aed" filter="url(#glow)"/>
+  </g>
+
+  <!-- Title section -->
+  <g transform="translate(420, 80)">
+    <text y="0" font-family="'SF Mono', 'Fira Code', 'JetBrains Mono', monospace" font-size="48" font-weight="700" fill="#fff" letter-spacing="2">Orbit</text>
+    <text y="36" font-family="'SF Mono', 'Fira Code', 'JetBrains Mono', monospace" font-size="18" fill="#00d4aa" letter-spacing="4">WORKFLOW KERNEL</text>
+    <text y="70" font-family="'SF Mono', 'Fira Code', 'JetBrains Mono', monospace" font-size="14" fill="#666" letter-spacing="1">面向 Claude Code 的可重复、可恢复、可评估的任务执行内核</text>
+  </g>
+
+  <!-- Workflow paths visualization -->
+  <g transform="translate(420, 130)">
+    <!-- Section label -->
+    <text y="0" font-family="'SF Mono', 'Fira Code', 'JetBrains Mono', monospace" font-size="12" fill="#444" letter-spacing="2">WORKFLOW PATHS</text>
+
+    <!-- Low path -->
+    <g transform="translate(0, 25)">
+      <rect x="0" y="0" width="44" height="22" rx="4" fill="#f59e0b" opacity="0.2"/>
+      <text x="8" y="15" font-family="'SF Mono', 'Fira Code', monospace" font-size="11" fill="#f59e0b" font-weight="600">LOW</text>
+      <text x="56" y="15" font-family="'SF Mono', 'Fira Code', monospace" font-size="12" fill="#888">pilot → execute → verify → complete</text>
+    </g>
+
+    <!-- Medium path -->
+    <g transform="translate(0, 57)">
+      <rect x="0" y="0" width="60" height="22" rx="4" fill="#00b4d8" opacity="0.2"/>
+      <text x="6" y="15" font-family="'SF Mono', 'Fira Code', monospace" font-size="11" fill="#00b4d8" font-weight="600">MEDIUM</text>
+      <text x="72" y="15" font-family="'SF Mono', 'Fira Code', monospace" font-size="12" fill="#888">pilot → scoping → execute → verify → complete</text>
+    </g>
+
+    <!-- High path -->
+    <g transform="translate(0, 89)">
+      <rect x="0" y="0" width="44" height="22" rx="4" fill="#ef4444" opacity="0.2"/>
+      <text x="6" y="15" font-family="'SF Mono', 'Fira Code', monospace" font-size="11" fill="#ef4444" font-weight="600">HIGH</text>
+      <text x="56" y="15" font-family="'SF Mono', 'Fira Code', monospace" font-size="12" fill="#888">pilot → design → plan → execute → verify → review → complete</text>
+    </g>
+  </g>
+
+  <!-- Key features section -->
+  <g transform="translate(420, 280)">
+    <text y="0" font-family="'SF Mono', 'Fira Code', 'JetBrains Mono', monospace" font-size="12" fill="#444" letter-spacing="2">KEY FEATURES</text>
+
+    <!-- Feature 1: Executor/Evaluator -->
+    <g transform="translate(0, 22)">
+      <circle cx="6" cy="7" r="4" fill="url(#dotGrad)"/>
+      <text x="20" y="12" font-family="'SF Mono', 'Fira Code', monospace" font-size="12" fill="#aaa">Executor / Evaluator 分离</text>
+      <text x="20" y="28" font-family="'SF Mono', 'Fira Code', monospace" font-size="11" fill="#555">独立评估闸门，防止自评失真</text>
+    </g>
+
+    <!-- Feature 2: State Machine -->
+    <g transform="translate(260, 22)">
+      <circle cx="6" cy="7" r="4" fill="url(#dotGrad)"/>
+      <text x="20" y="12" font-family="'SF Mono', 'Fira Code', monospace" font-size="12" fill="#aaa">状态机 + Todo 双层约束</text>
+      <text x="20" y="28" font-family="'SF Mono', 'Fira Code', monospace" font-size="11" fill="#555">阶段守卫 + 待办同步，保障流转正确</text>
+    </g>
+
+    <!-- Feature 3: Handoff/Resume -->
+    <g transform="translate(0, 70)">
+      <circle cx="6" cy="7" r="4" fill="url(#dotGrad)"/>
+      <text x="20" y="12" font-family="'SF Mono', 'Fira Code', monospace" font-size="12" fill="#aaa">Handoff / Resume 一等公民</text>
+      <text x="20" y="28" font-family="'SF Mono', 'Fira Code', monospace" font-size="11" fill="#555">结构化恢复载荷，跨会话无缝衔接</text>
+    </g>
+
+    <!-- Feature 4: Native Tools -->
+    <g transform="translate(260, 70)">
+      <circle cx="6" cy="7" r="4" fill="url(#dotGrad)"/>
+      <text x="20" y="12" font-family="'SF Mono', 'Fira Code', monospace" font-size="12" fill="#aaa">Claude Code 原生工具集成</text>
+      <text x="20" y="28" font-family="'SF Mono', 'Fira Code', monospace" font-size="11" fill="#555">AskUserQuestion / Explore / LSP</text>
+    </g>
+  </g>
+
+  <!-- Bottom accent line -->
+  <rect x="50" y="458" width="1100" height="2" rx="1" fill="url(#accent2)" opacity="0.4"/>
+
+  <!-- Version -->
+  <text x="50" y="448" font-family="'SF Mono', 'Fira Code', monospace" font-size="11" fill="#333" letter-spacing="1">v0.1.0</text>
+
+  <!-- Plugin badge -->
+  <g transform="translate(1020, 448)">
+    <rect x="0" y="-12" width="130" height="20" rx="10" fill="#00d4aa" opacity="0.1"/>
+    <text x="16" y="3" font-family="'SF Mono', 'Fira Code', monospace" font-size="11" fill="#00d4aa" letter-spacing="1">Claude Code Plugin</text>
+  </g>
+</svg>
