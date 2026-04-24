@@ -1,0 +1,32 @@
+{
+  "task_id": "T-RUNTIME-BAD-HANDOFF",
+  "title": "invalid runtime lite handoff missing next action",
+  "density": "medium",
+  "stage": "handoff",
+  "status": "active",
+  "goal": "Pause a scoped task for later resume",
+  "first_executor": "executor-a",
+  "current_owner": "executor-a",
+  "next_action": "",
+  "last_event": "HANDOFF_SAVED",
+  "verification_level": "required",
+  "repair_direction": null,
+  "artifacts": {
+    "triage": "artifacts/T-RUNTIME-BAD-HANDOFF/triage.md",
+    "scope": "artifacts/T-RUNTIME-BAD-HANDOFF/scope.md",
+    "design": null,
+    "plan": null,
+    "execution": "artifacts/T-RUNTIME-BAD-HANDOFF/execution.md",
+    "verification": null,
+    "review": null,
+    "handoff": "artifacts/T-RUNTIME-BAD-HANDOFF/handoff.json",
+    "task_packet": "artifacts/T-RUNTIME-BAD-HANDOFF/task-packet.json"
+  },
+  "todo": [
+    {
+      "id": "t1",
+      "text": "Continue implementation after resume",
+      "status": "pending"
+    }
+  ]
+}

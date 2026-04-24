@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://orbit.local/task-packet.schema.json",
+  "title": "Orbit Task Packet",
+  "type": "object",
+  "required": ["task_id", "stage", "task_spec", "scene", "files_in_scope", "acceptance", "out_of_scope", "next_action"],
+  "properties": {
+    "task_id": { "type": "string", "minLength": 1 },
+    "parent_task_id": {
+      "type": ["string", "null"],
+      "description": "若为子任务，指向父任务 task_id（约定 <parent>.<n>）"
+    },
+    "density": { "enum": ["low", "medium", "high"] },
+    "stage": { "type": "string", "minLength": 1 },
+    "task_spec": { "type": "string", "minLength": 1 },
+    "scene": {
+      "type": "string",
+      "minLength": 1,
+      "description": "controller 必须完整注入的上下文摘要；子任务的 scene 由父任务摘要而来，禁止让 subagent 读文件补齐"
+    },
+    "files_in_scope": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "acceptance": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "out_of_scope": { "type": "array", "items": { "type": "string" } },
+    "next_action": { "type": "string", "minLength": 1 },
+    "spawn_subtask": {
+      "type": "boolean",
+      "default": false,
+      "description": "planning 阶段标记该 step 应派发独立子任务"
+    },
+    "subtask_index": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "description": "当为子任务时的序号（<parent>.<n> 中的 n）"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "subtask_index": { "type": "integer" } }, "required": ["subtask_index"] },
+      "then": { "required": ["parent_task_id"] }
+    }
+  ]
+}

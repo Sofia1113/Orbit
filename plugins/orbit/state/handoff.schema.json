@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://orbit.local/handoff.schema.json",
+  "title": "Orbit Handoff Payload",
+  "type": "object",
+  "required": [
+    "version",
+    "task_id",
+    "density",
+    "stage",
+    "status",
+    "source_stage",
+    "handoff_reason",
+    "task_summary",
+    "current_focus",
+    "next_action",
+    "actions",
+    "decisions",
+    "blockers",
+    "risks",
+    "artifacts",
+    "resume_order_hint",
+    "resume_brief"
+  ],
+  "properties": {
+    "version": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "density": { "enum": ["low", "medium", "high"] },
+    "stage": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["active", "paused", "completed", "cancelled"] },
+    "source_stage": { "type": "string", "minLength": 1 },
+    "handoff_reason": { "type": "string", "minLength": 1 },
+    "task_summary": { "type": "string", "minLength": 1 },
+    "current_focus": { "type": "string", "minLength": 1 },
+    "next_action": {
+      "type": "object",
+      "required": ["id", "text", "owner", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "text": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "actions": {
+      "type": "object",
+      "required": ["in_progress", "ready", "blocked", "done"],
+      "properties": {
+        "in_progress": { "type": ["string", "null"] },
+        "ready": { "type": "array", "items": { "type": "string" } },
+        "blocked": { "type": "array", "items": { "type": "string" } },
+        "done": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "decisions": { "type": "array", "items": { "type": "object" } },
+    "blockers": { "type": "array", "items": { "type": "object" } },
+    "risks": { "type": "array", "items": { "type": "object" } },
+    "artifacts": { "type": "object" },
+    "resume_order_hint": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "resume_brief": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}

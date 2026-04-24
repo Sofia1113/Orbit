@@ -1,0 +1,19 @@
+{
+  "name": "orbit-marketplace",
+  "owner": {
+    "name": "Orbit"
+  },
+  "plugins": [
+    {
+      "name": "orbit",
+      "source": "./plugins/orbit",
+      "description": "A workflow kernel plugin for Claude Code with repeatable task execution stages.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Orbit"
+      },
+      "keywords": ["workflow", "state-machine", "tasks", "evaluation", "marketplace"],
+      "category": "workflow"
+    }
+  ]
+}

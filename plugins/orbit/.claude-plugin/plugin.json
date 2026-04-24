@@ -1,0 +1,10 @@
+{
+  "name": "orbit",
+  "version": "0.1.0",
+  "description": "A workflow kernel plugin for Claude Code with marketplace-friendly packaging.",
+  "author": {
+    "name": "Orbit"
+  },
+  "skills": "./skills/",
+  "keywords": ["workflow", "state-machine", "tasks", "evaluation", "marketplace"]
+}

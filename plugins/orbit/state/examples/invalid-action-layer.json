@@ -1,0 +1,133 @@
+{
+  "task_id": "T-BAD-ACTIONS",
+  "title": "invalid action layer",
+  "density": "medium",
+  "stage": "executing",
+  "status": "active",
+  "first_executor": "executor-a",
+  "current_owner": "executor-a",
+  "evaluator": "evaluator-a",
+  "source_stage_before_handoff": null,
+  "last_active_stage": null,
+  "goal": "Catch multiple in-progress actions",
+  "scope": "guard validation",
+  "acceptance_criteria": ["guard rejects multiple in-progress actions"],
+  "artifacts": {
+    "triage": "artifacts/T-BAD-ACTIONS/triage.md",
+    "scope": "artifacts/T-BAD-ACTIONS/scope.md",
+    "design": null,
+    "plan": null,
+    "execution": null,
+    "verification": null,
+    "review": null,
+    "handoff": null,
+    "task_packet": null
+  },
+  "triage_result": {
+    "intent_type": "maintenance",
+    "complexity_score": 5,
+    "density_reasons": ["需要动作层一致性"],
+    "routing_confidence": "high",
+    "selected_workflow": "medium",
+    "required_stages": ["triaged", "scoping", "executing", "verifying", "completed"],
+    "verification_level": "required",
+    "scores": {
+      "scope_breadth": 1,
+      "requirement_clarity": 1,
+      "design_uncertainty": 0,
+      "state_recovery_need": 1,
+      "validation_risk": 1,
+      "coordination_complexity": 1
+    },
+    "hard_rules_triggered": [],
+    "request_summary": "Guard action layer case",
+    "workflow_path": ["triaged", "scoping", "executing", "verifying", "completed"],
+    "required_artifacts": ["triage", "scope", "execution", "verification"],
+    "why_not_lower": "存在 required verification"
+  },
+  "action_layer": {
+    "actions": [
+      {
+        "id": "a1",
+        "title": "First action",
+        "description": "First in-progress action",
+        "status": "in_progress",
+        "kind": "implementation",
+        "owner": "executor",
+        "stage": "executing",
+        "depends_on": [],
+        "produces": ["artifacts.execution"],
+        "acceptance_signal": "first action done",
+        "source": "manual",
+        "updated_at": "2026-04-19T16:00:00Z"
+      },
+      {
+        "id": "a2",
+        "title": "Second action",
+        "description": "Second in-progress action",
+        "status": "in_progress",
+        "kind": "implementation",
+        "owner": "executor",
+        "stage": "executing",
+        "depends_on": [],
+        "produces": ["artifacts.execution"],
+        "acceptance_signal": "second action done",
+        "source": "manual",
+        "updated_at": "2026-04-19T16:00:00Z"
+      }
+    ],
+    "current_action_id": "a1",
+    "next_action_id": "a1"
+  },
+  "shared_context": {
+    "task_summary": "Detect invalid action concurrency",
+    "acceptance_contract": ["Only one action may be in progress"],
+    "current_focus": "Ensure guard catches concurrent actions"
+  },
+  "resume_context": {
+    "resume_priority_used": null,
+    "restored_from_artifacts": [],
+    "resume_brief": "",
+    "last_resume_at": null
+  },
+  "handoff_meta": {
+    "handoff_version": "1",
+    "handoff_status": "none",
+    "handoff_source_stage": null,
+    "handoff_for_role": null,
+    "summary_path": null,
+    "handoff_reason": null
+  },
+  "review_state": {
+    "review_required": false,
+    "review_cycle": 0
+  },
+  "verification_state": {
+    "verification_required": true,
+    "verification_level": "required",
+    "verification_cycle": 0,
+    "last_verdict": null
+  },
+  "rebuild_info": {
+    "state_rebuildable": true,
+    "rebuild_sources": ["triage"]
+  },
+  "decision_log": [],
+  "blockers": [],
+  "risks": [],
+  "next_action": "First action",
+  "last_event": "ACTION_STARTED",
+  "repair_direction": null,
+  "todo": [
+    {
+      "id": "a1",
+      "text": "First action",
+      "status": "in_progress"
+    },
+    {
+      "id": "a2",
+      "text": "Second action",
+      "status": "in_progress"
+    }
+  ]
+}

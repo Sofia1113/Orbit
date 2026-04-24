@@ -1,0 +1,32 @@
+{
+  "task_id": "T-RUNTIME-LOW-001",
+  "title": "valid runtime lite low",
+  "density": "low",
+  "stage": "executing",
+  "status": "active",
+  "goal": "Rename a known response field",
+  "first_executor": "executor-a",
+  "current_owner": "executor-a",
+  "next_action": "Rename response field and update dependent test",
+  "last_event": "TRIAGE_DONE",
+  "verification_level": "optional",
+  "repair_direction": null,
+  "artifacts": {
+    "triage": "artifacts/T-RUNTIME-LOW-001/triage.md",
+    "scope": null,
+    "design": null,
+    "plan": null,
+    "execution": null,
+    "verification": null,
+    "review": null,
+    "handoff": null,
+    "task_packet": "artifacts/T-RUNTIME-LOW-001/task-packet.json"
+  },
+  "todo": [
+    {
+      "id": "t1",
+      "text": "Rename response field and update dependent test",
+      "status": "in_progress"
+    }
+  ]
+}

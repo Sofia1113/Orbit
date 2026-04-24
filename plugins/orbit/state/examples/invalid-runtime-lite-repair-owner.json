@@ -1,0 +1,32 @@
+{
+  "task_id": "T-RUNTIME-BAD-OWNER",
+  "title": "invalid runtime lite repair owner",
+  "density": "medium",
+  "stage": "repairing",
+  "status": "active",
+  "goal": "Repair a failed verification result",
+  "first_executor": "executor-a",
+  "current_owner": "executor-b",
+  "next_action": "Apply repair direction",
+  "last_event": "VERIFY_FAIL",
+  "verification_level": "required",
+  "repair_direction": "Return to first executor and close verification gaps",
+  "artifacts": {
+    "triage": "artifacts/T-RUNTIME-BAD-OWNER/triage.md",
+    "scope": "artifacts/T-RUNTIME-BAD-OWNER/scope.md",
+    "design": null,
+    "plan": null,
+    "execution": "artifacts/T-RUNTIME-BAD-OWNER/execution.md",
+    "verification": "artifacts/T-RUNTIME-BAD-OWNER/verification.md",
+    "review": null,
+    "handoff": null,
+    "task_packet": "artifacts/T-RUNTIME-BAD-OWNER/task-packet.json"
+  },
+  "todo": [
+    {
+      "id": "t1",
+      "text": "Apply repair direction",
+      "status": "in_progress"
+    }
+  ]
+}

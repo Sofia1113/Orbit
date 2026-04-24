@@ -1,0 +1,114 @@
+{
+  "task_id": "T-HIGH-001",
+  "title": "valid high review loop",
+  "density": "high",
+  "stage": "repairing",
+  "status": "active",
+  "first_executor": "executor-a",
+  "current_owner": "executor-a",
+  "evaluator": "evaluator-a",
+  "source_stage_before_handoff": null,
+  "last_active_stage": "reviewing",
+  "goal": "Close a high-density review loop",
+  "scope": "review repair",
+  "acceptance_criteria": ["review fail returns to repairing", "first executor keeps ownership"],
+  "artifacts": {
+    "triage": "artifacts/T-HIGH-001/triage.md",
+    "scope": null,
+    "design": "artifacts/T-HIGH-001/design.md",
+    "plan": "artifacts/T-HIGH-001/plan.md",
+    "execution": "artifacts/T-HIGH-001/execution.md",
+    "verification": "artifacts/T-HIGH-001/verification.md",
+    "review": "artifacts/T-HIGH-001/review.md",
+    "handoff": null,
+    "task_packet": "artifacts/T-HIGH-001/task-packet.json"
+  },
+  "triage_result": {
+    "intent_type": "refactor",
+    "complexity_score": 12,
+    "density_reasons": ["需要 design", "需要 planning", "需要 review gate"],
+    "routing_confidence": "high",
+    "selected_workflow": "high",
+    "required_stages": ["triaged", "designing", "planning", "executing", "verifying", "reviewing", "repairing", "completed"],
+    "verification_level": "required_plus_review",
+    "scores": {
+      "scope_breadth": 2,
+      "requirement_clarity": 1,
+      "design_uncertainty": 2,
+      "state_recovery_need": 1,
+      "validation_risk": 3,
+      "coordination_complexity": 3
+    },
+    "hard_rules_triggered": ["review gate required"],
+    "request_summary": "High-density review repair",
+    "workflow_path": ["triaged", "designing", "planning", "executing", "verifying", "reviewing", "repairing", "completed"],
+    "required_artifacts": ["triage", "design", "plan", "execution", "verification", "review"],
+    "why_not_lower": "涉及 review 闸门与修复闭环"
+  },
+  "action_layer": {
+    "actions": [
+      {
+        "id": "a1",
+        "title": "Repair review gaps",
+        "description": "Apply the review feedback before re-entering execution",
+        "status": "in_progress",
+        "kind": "implementation",
+        "owner": "executor",
+        "stage": "repairing",
+        "depends_on": [],
+        "produces": ["artifacts.execution"],
+        "acceptance_signal": "review gaps are addressed",
+        "source": "repair_direction",
+        "updated_at": "2026-04-19T16:00:00Z"
+      }
+    ],
+    "current_action_id": "a1",
+    "next_action_id": "a1"
+  },
+  "shared_context": {
+    "task_summary": "Review failed and returned to repairing",
+    "acceptance_contract": ["Only the first executor repairs review failures"],
+    "current_focus": "Fix review gaps and re-enter execution"
+  },
+  "resume_context": {
+    "resume_priority_used": null,
+    "restored_from_artifacts": [],
+    "resume_brief": "",
+    "last_resume_at": null
+  },
+  "handoff_meta": {
+    "handoff_version": "1",
+    "handoff_status": "none",
+    "handoff_source_stage": null,
+    "handoff_for_role": null,
+    "summary_path": null,
+    "handoff_reason": null
+  },
+  "review_state": {
+    "review_required": true,
+    "review_cycle": 1
+  },
+  "verification_state": {
+    "verification_required": true,
+    "verification_level": "required_plus_review",
+    "verification_cycle": 1,
+    "last_verdict": "PASS"
+  },
+  "rebuild_info": {
+    "state_rebuildable": true,
+    "rebuild_sources": ["review", "verification", "execution"]
+  },
+  "decision_log": [],
+  "blockers": [],
+  "risks": [],
+  "next_action": "Repair review gaps",
+  "last_event": "REVIEW_FAIL",
+  "repair_direction": "Return to first executor and address review gaps",
+  "todo": [
+    {
+      "id": "a1",
+      "text": "Repair review gaps",
+      "status": "in_progress"
+    }
+  ]
+}

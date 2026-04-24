@@ -1,0 +1,114 @@
+{
+  "task_id": "T-MEDIUM-001",
+  "title": "valid medium resumable",
+  "density": "medium",
+  "stage": "handoff",
+  "status": "active",
+  "first_executor": "executor-a",
+  "current_owner": "executor-a",
+  "evaluator": "evaluator-a",
+  "source_stage_before_handoff": "executing",
+  "last_active_stage": "executing",
+  "goal": "Implement a scoped feature with resumable handoff",
+  "scope": "single-module feature",
+  "acceptance_criteria": ["handoff is machine-readable", "resume can continue executing"],
+  "artifacts": {
+    "triage": "artifacts/T-MEDIUM-001/triage.md",
+    "scope": "artifacts/T-MEDIUM-001/scope.md",
+    "design": null,
+    "plan": null,
+    "execution": "artifacts/T-MEDIUM-001/execution.md",
+    "verification": null,
+    "review": null,
+    "handoff": "artifacts/T-MEDIUM-001/handoff.json",
+    "task_packet": "artifacts/T-MEDIUM-001/task-packet.json"
+  },
+  "triage_result": {
+    "intent_type": "feature",
+    "complexity_score": 7,
+    "density_reasons": ["需要 scoping", "验证为 required"],
+    "routing_confidence": "high",
+    "selected_workflow": "medium",
+    "required_stages": ["triaged", "scoping", "executing", "verifying", "completed"],
+    "verification_level": "required",
+    "scores": {
+      "scope_breadth": 1,
+      "requirement_clarity": 1,
+      "design_uncertainty": 1,
+      "state_recovery_need": 1,
+      "validation_risk": 2,
+      "coordination_complexity": 1
+    },
+    "hard_rules_triggered": ["scoping required"],
+    "request_summary": "Scoped feature work",
+    "workflow_path": ["triaged", "scoping", "executing", "verifying", "completed"],
+    "required_artifacts": ["triage", "scope", "execution", "verification"],
+    "why_not_lower": "需要在实现前收敛边界"
+  },
+  "action_layer": {
+    "actions": [
+      {
+        "id": "a1",
+        "title": "Implement scoped change",
+        "description": "Finish the remaining implementation step",
+        "status": "ready",
+        "kind": "implementation",
+        "owner": "executor",
+        "stage": "executing",
+        "depends_on": [],
+        "produces": ["artifacts.execution"],
+        "acceptance_signal": "execution artifact updated",
+        "source": "plan",
+        "updated_at": "2026-04-19T16:00:00Z"
+      }
+    ],
+    "current_action_id": null,
+    "next_action_id": "a1"
+  },
+  "shared_context": {
+    "task_summary": "Scoped feature paused at executing",
+    "acceptance_contract": ["Resume should continue executing, not restart scoping"],
+    "current_focus": "Restore the next implementation step"
+  },
+  "resume_context": {
+    "resume_priority_used": "handoff",
+    "restored_from_artifacts": ["artifacts/T-MEDIUM-001/handoff.json"],
+    "resume_brief": "Resume by continuing the scoped implementation step",
+    "last_resume_at": "2026-04-19T16:10:00Z"
+  },
+  "handoff_meta": {
+    "handoff_version": "1",
+    "handoff_status": "fresh",
+    "handoff_source_stage": "executing",
+    "handoff_for_role": "executor",
+    "summary_path": "artifacts/T-MEDIUM-001/handoff.md",
+    "handoff_reason": "pause"
+  },
+  "review_state": {
+    "review_required": false,
+    "review_cycle": 0
+  },
+  "verification_state": {
+    "verification_required": true,
+    "verification_level": "required",
+    "verification_cycle": 0,
+    "last_verdict": null
+  },
+  "rebuild_info": {
+    "state_rebuildable": true,
+    "rebuild_sources": ["handoff", "execution"]
+  },
+  "decision_log": [],
+  "blockers": [],
+  "risks": [],
+  "next_action": "Implement scoped change",
+  "last_event": "HANDOFF_SAVED",
+  "repair_direction": null,
+  "todo": [
+    {
+      "id": "a1",
+      "text": "Implement scoped change",
+      "status": "pending"
+    }
+  ]
+}

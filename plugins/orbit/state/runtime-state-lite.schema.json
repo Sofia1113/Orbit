@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://orbit.local/runtime-state-lite.schema.json",
+  "title": "Orbit Runtime State Lite",
+  "type": "object",
+  "required": [
+    "task_id",
+    "density",
+    "stage",
+    "status",
+    "goal",
+    "first_executor",
+    "current_owner",
+    "next_action",
+    "last_event",
+    "artifacts",
+    "verification_level"
+  ],
+  "properties": {
+    "task_id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string" },
+    "density": { "enum": ["low", "medium", "high"] },
+    "stage": {
+      "enum": [
+        "triaged",
+        "scoping",
+        "designing",
+        "planning",
+        "executing",
+        "verifying",
+        "reviewing",
+        "repairing",
+        "handoff",
+        "paused",
+        "completed",
+        "cancelled"
+      ]
+    },
+    "status": { "enum": ["active", "paused", "completed", "cancelled"] },
+    "goal": { "type": "string", "minLength": 1 },
+    "first_executor": { "type": "string", "minLength": 1 },
+    "current_owner": { "type": "string", "minLength": 1 },
+    "next_action": { "type": "string", "minLength": 1 },
+    "last_event": {
+      "enum": [
+        "TASK_CREATED",
+        "TRIAGE_DONE",
+        "SCOPE_DONE",
+        "DESIGN_DONE",
+        "PLAN_DONE",
+        "EXECUTION_DONE",
+        "VERIFY_PASS",
+        "VERIFY_FAIL",
+        "REVIEW_PASS",
+        "REVIEW_FAIL",
+        "REPAIR_SUBMITTED",
+        "HANDOFF_SAVED",
+        "RESUME_RESTORED",
+        "PAUSE",
+        "CANCEL",
+        "COMPLETE",
+        "ESCALATE_DENSITY",
+        "DOWNGRADE_DENSITY",
+        "SUBTASK_SPAWNED",
+        "SUBTASK_COMPLETED",
+        "NEEDS_CONTEXT",
+        "BLOCKED",
+        "DONE_WITH_CONCERNS"
+      ]
+    },
+    "verification_level": { "enum": ["optional", "required", "required_plus_review"] },
+    "repair_direction": { "type": ["string", "null"] },
+    "verify_fail_streak": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "连续 verify FAIL 次数；REPAIR_SUBMITTED 后 +1，VERIFY_PASS 归零。>= consecutive_verify_fail_limit 时停止循环，用 AskUserQuestion 让用户决策。"
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "triage",
+        "scope",
+        "design",
+        "plan",
+        "execution",
+        "verification",
+        "review",
+        "handoff",
+        "task_packet"
+      ],
+      "properties": {
+        "triage": { "type": ["string", "null"] },
+        "scope": { "type": ["string", "null"] },
+        "design": { "type": ["string", "null"] },
+        "plan": { "type": ["string", "null"] },
+        "execution": { "type": ["string", "null"] },
+        "verification": { "type": ["string", "null"] },
+        "review": { "type": ["string", "null"] },
+        "handoff": { "type": ["string", "null"] },
+        "task_packet": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "todo": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "status"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "text": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["pending", "in_progress", "done"] }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "stage": { "const": "repairing" } } },
+      "then": { "required": ["repair_direction"] }
+    },
+    {
+      "if": { "properties": { "stage": { "enum": ["handoff", "paused"] } } },
+      "then": { "required": ["next_action"] }
+    },
+    {
+      "if": { "properties": { "stage": { "enum": ["completed", "cancelled"] } } },
+      "then": {
+        "properties": {
+          "todo": {
+            "type": "array",
+            "items": { "type": "object", "properties": { "status": { "enum": ["pending", "done"] } } }
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}
