@@ -1,6 +1,6 @@
 {
   "task_id": "T-RUNTIME-LOW-001",
-  "title": "valid runtime lite low",
+  "title": "valid runtime low",
   "density": "low",
   "stage": "executing",
   "status": "active",

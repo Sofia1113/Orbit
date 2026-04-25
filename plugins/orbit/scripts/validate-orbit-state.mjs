@@ -12,7 +12,7 @@ const skillsDir = path.join(root, 'skills');
 
 const readText = (file) => fs.readFileSync(file, 'utf8');
 const readJson = (file) => JSON.parse(readText(file));
-const schema = readJson(path.join(stateDir, 'runtime-state-lite.schema.json'));
+const schema = readJson(path.join(stateDir, 'runtime-state.schema.json'));
 const rules = readJson(path.join(stateDir, 'rules.json'));
 const taskPacketSchema = readJson(path.join(stateDir, 'task-packet.schema.json'));
 const handoffSchema = readJson(path.join(stateDir, 'handoff.schema.json'));
@@ -224,7 +224,7 @@ if (runtimeFlagIndex !== -1) {
 }
 
 validatePluginMetadata();
-validateSchemaBasics('runtime-state-lite.schema.json', schema);
+validateSchemaBasics('runtime-state.schema.json', schema);
 validateSchemaBasics('task-packet.schema.json', taskPacketSchema);
 validateSchemaBasics('handoff.schema.json', handoffSchema);
 validateRules();

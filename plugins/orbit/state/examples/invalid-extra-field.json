@@ -34,5 +34,5 @@
       "status": "in_progress"
     }
   ],
-  "deprecated_field_not_allowed": "此字段不在 lite schema 中，应被 additionalProperties 拒绝"
+  "deprecated_field_not_allowed": "此字段不在 schema 中，应被 additionalProperties 拒绝"
 }

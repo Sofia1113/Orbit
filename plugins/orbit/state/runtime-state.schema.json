@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://orbit.local/runtime-state-lite.schema.json",
-  "title": "Orbit Runtime State Lite（v1 唯一运行时 schema）",
-  "description": "每个任务 runtime.json 的权威契约，v1 唯一运行时 schema。",
+  "$id": "https://orbit.local/runtime-state.schema.json",
+  "title": "Orbit Runtime State",
+  "description": "每个任务 runtime.json 的权威契约。",
   "type": "object",
   "required": [
     "task_id",

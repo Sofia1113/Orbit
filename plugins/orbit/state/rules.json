@@ -121,7 +121,7 @@
     "state_persistence_root": ".orbit/state/<task_id>/",
     "subtask_isolated": true,
     "write_timing": "每个 skill 在结束时回写 runtime.json，同时更新对应工件文件",
-    "recovery_priority": ["handoff.json", "runtime.json", "最近失败 review.md", "最近失败 verification.md", "最近 execution.md", "其他 artifact", "历史描述"],
+    "recovery_priority": ["handoff.json", "runtime.json", "最近失败 review.md", "最近失败 verification.md", "最近 execution.md", "其他 artifact", "原始任务描述"],
     "gitignore_on_init": "*"
   },
 
