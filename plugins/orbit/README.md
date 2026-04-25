@@ -9,7 +9,7 @@
 - 以 handoff 恢复载荷为中心的跨会话恢复
 - 以 skills、agents、轻量规则文件组合实现的工作流骨架
 - 以 `runtime-state-lite`、阶段规则、最小 gate 与**文件化 SSOT**驱动的状态机内核
-- 以 **TodoWrite** 作为 stage 执行的源权威，实现"状态机 × 待办"的双向约束
+- 以 **Claude Code 原生 task 工具（`TaskCreate` / `TaskUpdate` / `TaskList`）** 作为 stage 执行的源权威，实现"状态机 × 待办"的双向约束
 
 ## 目录结构
 
@@ -17,7 +17,7 @@
 plugins/orbit/
 ├─ .claude-plugin/plugin.json
 ├─ skills/
-│  ├─ references/common-runtime-patterns.md  # 公共持久化/TodoWrite 模式
+│  ├─ references/common-runtime-patterns.md  # 公共持久化 / 任务清单 / 会话恢复 模式
 │  └─ <skill>/
 │     └─ SKILL.md           # 触发语 + 路由 + 阶段特有约束 + 输出字段 + 退出自检
 ├─ agents/                  # executor / evaluator / spec-compliance / code-quality
@@ -138,7 +138,7 @@ plugins/orbit/
   2. code-quality evaluator（仅当第一阶段 PASS）
 - evaluator 不得接管修复
 - FAIL 固定回 `repairing`，owner 必须等于 `first_executor`
-- evaluator 返回的 `repair_actions` 必须逐条追加为 TodoWrite items
+- evaluator 返回的 `repair_actions` 必须逐条用 `TaskCreate` 追加为新 todo
 
 ### Subagent dispatch 纪律（承接 superpowers）
 
@@ -156,30 +156,42 @@ plugins/orbit/
 
 ### Skill 公共模式
 
-- `skills/references/common-runtime-patterns.md` 抽取了状态持久化、TodoWrite 绑定和原生工具集成的公共规则
+- `skills/references/common-runtime-patterns.md` 抽取了状态持久化、任务清单（TaskCreate/TaskUpdate/TaskList）绑定、`first_executor` 跨会话恢复与原生工具集成的公共规则
 - 各 SKILL.md 通过"运行时契约"段引用公共模式，仅描述本阶段特有差异
 
-### TodoWrite 与 runtime.todo[] 的双层语义
+### 任务清单（TaskCreate / TaskUpdate / TaskList）与 runtime.todo[] 的双层语义
 
 - **持久化 SSOT = `runtime.todo[]`**（跨会话、跨子代理存活）
-- **会话投影 = TodoWrite**（仅本次会话可见，会话结束即丢失）
+- **会话投影 = Claude Code 原生 task 工具维护的任务列表**（仅本次会话可见，会话结束即丢失）
 - 规则：
-  - 进入任意 stage 第一步必须调用 TodoWrite，并把结果回写到 `runtime.todo[]`
-  - 阶段内任意一项状态变化（`pending` / `in_progress` / `done`），**先更新 TodoWrite，再同步回写 `runtime.todo[]`**
+  - 进入任意 stage 第一步必须用 `TaskCreate` 创建本阶段所有 todo，并把结果回写到 `runtime.todo[]`
+  - 阶段内任意一项状态变化（`pending` / `in_progress` / `done`），**先 `TaskUpdate` 改会话投影，再同步回写 `runtime.todo[]`**
   - 任意时刻只能有一个 `in_progress`
-  - 完成立刻 `done`；evaluator 返回的 `repair_actions` 立刻逐条追加为新 todo
-  - **后续会话恢复时反向重建**：由 `runtime.todo[]` 重建当前会话的 TodoWrite，不从历史对话里回忆
-  - 当两者冲突，以 `runtime.todo[]` 为准（持久源胜出），并在重建后同步 TodoWrite
+  - 完成立刻 `TaskUpdate` 置 `done`；evaluator 返回的 `repair_actions` 立刻逐条 `TaskCreate` 追加为新 todo
+  - **后续会话恢复时反向重建**：由 `runtime.todo[]` 用 `TaskCreate` 重建当前会话任务列表，不从历史对话里回忆
+  - 当两者冲突，以 `runtime.todo[]` 为准（持久源胜出），并在重建后同步会话投影
+
+### `first_executor` 跨会话恢复语义
+
+- `first_executor` 是**逻辑首席执行者角色**，不是会话 ID
+- pilot 创建任务时填入约定 sentinel `"primary-session"`
+- 新会话恢复同一任务时**默认承接** `first_executor="primary-session"`，可在 `repairing` 阶段合法承担修复
+- 子代理 dispatch 与 handoff 都不改变 `first_executor`
+- 仅在用户显式换主时更新，并在 runtime 中记录原因
 
 ## 本地自检
 
 运行零依赖状态校验：
 
 ```bash
+# 全量自检：schema / rules / docs / examples 一致性
 node plugins/orbit/scripts/validate-orbit-state.mjs
+
+# 单 runtime 自检（供每个 skill 退出前调用）
+node plugins/orbit/scripts/validate-orbit-state.mjs --runtime .orbit/state/<task_id>/runtime.json
 ```
 
-脚本会检查 `runtime-state-lite.schema.json`、`rules.json` 与 `state/examples/` 的一致性。也可通过以下抽查验证流程一致性：
+第一种模式会检查 `runtime-state-lite.schema.json`、`rules.json` 与 `state/examples/` 的一致性。第二种模式仅校验单个任务的 `runtime.json` 是否符合 schema 与硬规则（每个 skill 在退出前自检里调用），无须依赖 examples。也可通过以下抽查验证流程一致性：
 
 - 阶段推进是否满足 `density`
 - 失败后是否统一回到 `repairing`

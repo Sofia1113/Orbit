@@ -5,12 +5,17 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
+const repoRoot = path.resolve(root, '..', '..');
 const stateDir = path.join(root, 'state');
 const examplesDir = path.join(stateDir, 'examples');
+const skillsDir = path.join(root, 'skills');
 
-const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
+const readText = (file) => fs.readFileSync(file, 'utf8');
+const readJson = (file) => JSON.parse(readText(file));
 const schema = readJson(path.join(stateDir, 'runtime-state-lite.schema.json'));
 const rules = readJson(path.join(stateDir, 'rules.json'));
+const taskPacketSchema = readJson(path.join(stateDir, 'task-packet.schema.json'));
+const handoffSchema = readJson(path.join(stateDir, 'handoff.schema.json'));
 
 const required = new Set(schema.required ?? []);
 const stageValues = new Set(schema.properties.stage.enum);
@@ -24,6 +29,37 @@ const validTodoStatuses = new Set(schema.properties.todo.items.properties.status
 const errors = [];
 let activeErrors = errors;
 const push = (file, message) => activeErrors.push(`${file}: ${message}`);
+
+function requireText(file, text, expected) {
+  if (!text.includes(expected)) push(file, `missing expected text: ${expected}`);
+}
+
+function validateSchemaBasics(file, data) {
+  for (const key of ['$schema', '$id', 'title', 'type', 'required', 'properties']) {
+    if (!(key in data)) push(file, `missing schema field ${key}`);
+  }
+  if (data.type !== 'object') push(file, 'schema type must be object');
+  if (!Array.isArray(data.required)) push(file, 'schema required must be an array');
+  if (!data.properties || typeof data.properties !== 'object' || Array.isArray(data.properties)) {
+    push(file, 'schema properties must be an object');
+  }
+}
+
+function validatePluginMetadata() {
+  const plugin = readJson(path.join(root, '.claude-plugin', 'plugin.json'));
+  const marketplace = readJson(path.join(repoRoot, '.claude-plugin', 'marketplace.json'));
+  const marketplacePlugin = marketplace.plugins?.find((entry) => entry.name === plugin.name);
+
+  if (!marketplacePlugin) push('marketplace.json', `missing plugin entry for ${plugin.name}`);
+  if (marketplacePlugin && marketplacePlugin.version !== plugin.version) {
+    push('marketplace.json', `version ${marketplacePlugin.version} must match plugin.json ${plugin.version}`);
+  }
+  if (marketplacePlugin && marketplacePlugin.source !== './plugins/orbit') {
+    push('marketplace.json', `unexpected source ${marketplacePlugin.source}`);
+  }
+  if (plugin.skills !== './skills/') push('plugin.json', 'skills must point to ./skills/');
+  if (plugin.agents !== './agents/') push('plugin.json', 'agents must point to ./agents/');
+}
 
 function validateRuntimeShape(file, data) {
   for (const key of required) {
@@ -101,10 +137,20 @@ function validateRuntimeShape(file, data) {
 }
 
 function validateRules() {
+  for (const density of densityValues) {
+    if (!rules.density_stage_paths[density]) push('rules.json', `missing density_stage_paths.${density}`);
+  }
+
   for (const [density, stages] of Object.entries(rules.density_stage_paths)) {
     if (!densityValues.has(density)) push('rules.json', `density_stage_paths has unknown density "${density}"`);
     for (const stage of stages) {
       if (!stageValues.has(stage)) push('rules.json', `density_stage_paths.${density} has unknown stage "${stage}"`);
+    }
+  }
+
+  for (const event of eventValues) {
+    if (event !== 'TASK_CREATED' && !rules.event_stage_transitions[event]) {
+      push('rules.json', `missing event_stage_transitions.${event}`);
     }
   }
 
@@ -117,9 +163,72 @@ function validateRules() {
       }
     }
   }
+
+  if (rules.verification.level_defaults.low !== 'optional') push('rules.json', 'low verification default must be optional');
+  if (rules.limits.consecutive_verify_fail_limit !== 3) push('rules.json', 'consecutive_verify_fail_limit must be 3');
 }
 
+function validateDocsAndSkills() {
+  const rootReadme = readText(path.join(repoRoot, 'README.md'));
+  const pluginReadme = readText(path.join(root, 'README.md'));
+  const designSkill = readText(path.join(skillsDir, 'design', 'SKILL.md'));
+  const verifySkill = readText(path.join(skillsDir, 'verify', 'SKILL.md'));
+  const reviewingSkill = readText(path.join(skillsDir, 'reviewing', 'SKILL.md'));
+  const handoffSkill = readText(path.join(skillsDir, 'handoff', 'SKILL.md'));
+
+  requireText('README.md', rootReadme, 'triaged -> executing -> verifying -> completed');
+  requireText('README.md', rootReadme, '必须停止循环，用 AskUserQuestion 让用户决定升级 / 重设方案 / 取消');
+  if (rootReadme.includes('verifying_optional')) push('README.md', 'must not mention verifying_optional');
+  if (rootReadme.includes('必须进入 `paused`')) push('README.md', 'verify fail limit must ask user instead of forcing paused');
+
+  requireText('plugins/orbit/README.md', pluginReadme, '`low`：`triaged → executing → verifying → completed`');
+  requireText('skills/design/SKILL.md', designSkill, '## User Approval');
+  requireText('skills/verify/SKILL.md', verifySkill, '## Evaluator Verdict');
+  requireText('skills/reviewing/SKILL.md', reviewingSkill, '## Spec Compliance Verdict');
+  requireText('skills/reviewing/SKILL.md', reviewingSkill, '## Code Quality Verdict');
+  requireText('skills/handoff/SKILL.md', handoffSkill, '`task_id`、`density`、`stage`、`status`、`task_summary`、`current_focus`、`next_action`');
+  if (handoffSkill.includes('/pause')) push('skills/handoff/SKILL.md', 'must not reference slash command /pause');
+}
+
+// CLI 模式：
+//   - 默认（无参数）：自检 schema / rules / docs / examples 一致性
+//   - `--runtime <path>`：仅校验单个 runtime.json（供 skill 退出前自检使用）
+const argv = process.argv.slice(2);
+const runtimeFlagIndex = argv.indexOf('--runtime');
+if (runtimeFlagIndex !== -1) {
+  const runtimePath = argv[runtimeFlagIndex + 1];
+  if (!runtimePath) {
+    console.error('--runtime requires a path argument');
+    process.exit(2);
+  }
+  const absRuntimePath = path.resolve(process.cwd(), runtimePath);
+  if (!fs.existsSync(absRuntimePath)) {
+    console.error(`runtime file not found: ${absRuntimePath}`);
+    process.exit(2);
+  }
+  let runtimeData;
+  try {
+    runtimeData = readJson(absRuntimePath);
+  } catch (e) {
+    console.error(`failed to parse ${absRuntimePath}: ${e.message}`);
+    process.exit(2);
+  }
+  validateRuntimeShape(runtimePath, runtimeData);
+  if (errors.length > 0) {
+    console.error(`Orbit runtime validation failed (${errors.length} issue${errors.length === 1 ? '' : 's'}):`);
+    for (const error of errors) console.error(`- ${error}`);
+    process.exit(1);
+  }
+  console.log(`Orbit runtime validation passed: ${runtimePath}`);
+  process.exit(0);
+}
+
+validatePluginMetadata();
+validateSchemaBasics('runtime-state-lite.schema.json', schema);
+validateSchemaBasics('task-packet.schema.json', taskPacketSchema);
+validateSchemaBasics('handoff.schema.json', handoffSchema);
 validateRules();
+validateDocsAndSkills();
 
 for (const entry of fs.readdirSync(examplesDir).filter((name) => name.endsWith('.json')).sort()) {
   const file = path.join(examplesDir, entry);

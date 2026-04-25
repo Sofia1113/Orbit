@@ -131,18 +131,17 @@
 - v1 默认以 `todo + next_action` 作为主动作模型
 - `DESIGN_DONE` 前 `design.md` 必须含 `## User Approval` 锚点且 `approved_option` 非空
 - `VERIFY_PASS` / `REVIEW_PASS` 前对应工件 md 必须含独立 evaluator 锚点且 `result=PASS`
-- 连续 verify FAIL 达到 `consecutive_verify_fail_limit`（默认 3）必须进入 `paused`
+- 连续 verify FAIL 达到 `consecutive_verify_fail_limit`（默认 3）必须停止循环，用 AskUserQuestion 让用户决定升级 / 重设方案 / 取消
 
 ## 初步工作流设计
 
 ### Low
 
 ```text
-triaged -> executing -> completed
-                \-> verifying_optional -> completed
+triaged -> executing -> verifying -> completed
 ```
 
-适用于已知改动，默认直接实现；只有用户要求或存在真实交互风险时才进入可选验证。
+适用于已知改动，默认直接实现；随后进入最小验证，`verification_level=optional` 表示验证强度可轻量，但仍由独立 evaluator 给出结论。
 
 ### Medium
 

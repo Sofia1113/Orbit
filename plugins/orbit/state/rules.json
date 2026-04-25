@@ -28,7 +28,10 @@
     "ESCALATE_DENSITY": { "medium": "designing", "low": "scoping" },
     "DOWNGRADE_DENSITY": { "high": "scoping", "medium": "executing" },
     "SUBTASK_SPAWNED": "executing",
-    "SUBTASK_COMPLETED": "executing"
+    "SUBTASK_COMPLETED": "executing",
+    "NEEDS_CONTEXT": "paused",
+    "BLOCKED": "paused",
+    "DONE_WITH_CONCERNS": "verifying"
   },
 
   "gates": {
@@ -57,7 +60,7 @@
         "repairing 阶段 current_owner 必须等于 first_executor",
         "REPAIR_SUBMITTED 后只能回到 verifying",
         "evaluator 不得接管修复",
-        "每次 FAIL 的 repair_actions 必须逐条落到 TodoWrite"
+        "每次 FAIL 的 repair_actions 必须逐条用 TaskCreate 追加到任务清单"
       ]
     },
     "escalation": {
@@ -69,7 +72,7 @@
         "连续 verify FAIL 达到 consecutive_verify_fail_limit 时必须停止自动循环，用 AskUserQuestion 让用户选择升级 density / 重设方案 / 取消任务",
         "executor 返回 BLOCKED 时必须附带 blocker_root_cause 并由 controller 决定换策略",
         "executor 返回 NEEDS_CONTEXT 时 controller 必须补齐上下文后再 dispatch，不得重试同一 prompt",
-        "DONE_WITH_CONCERNS 允许进入 verifying，但 concerns 必须逐条落入 TodoWrite"
+        "DONE_WITH_CONCERNS 允许进入 verifying，但 concerns 必须逐条用 TaskCreate 落入任务清单"
       ]
     }
   },
@@ -133,7 +136,7 @@
     "handoff_requires_next_action": true,
     "paused_requires_next_action": true,
     "single_in_progress_todo": true,
-    "todo_write_is_source_of_truth_per_stage": true,
+    "task_list_is_source_of_truth_per_stage": true,
     "controller_must_inject_full_task_packet_to_subagent": true,
     "evaluator_must_be_independent_subagent": true,
     "evaluator_cannot_repair": true,

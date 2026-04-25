@@ -6,5 +6,6 @@
     "name": "Orbit"
   },
   "skills": "./skills/",
+  "agents": "./agents/",
   "keywords": ["workflow", "state-machine", "tasks", "evaluation", "marketplace"]
 }
