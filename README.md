@@ -25,7 +25,7 @@
 任务进入阶段边界、子代理执行中断时必须有 handoff。
 
 - `handoff`：Orbit 产出的结构化恢复载荷，用于子代理或任务级执行在异常中断后继续
-- 官方恢复命令：主会话恢复仍交给 Claude Code 官方机制；Orbit 不注册 `resume` skill，避免命名冲突
+- 官方恢复命令：主会话恢复仍交给 Claude Code 官方机制；Orbit 不注册任何 Claude Code skill，避免命名冲突
 
 `handoff` 不是冗长会议纪要，而是子代理恢复任务真正需要的最小信息：当前焦点、当前状态、下一步唯一动作、已确认的关键决策、风险与待验证项。
 
@@ -73,7 +73,7 @@ Orbit 的任务执行不是"看感觉推进"，而是由状态机约束：
 - 运行时状态 schema：`plugins/orbit/state/runtime-state.schema.json`
 - 规则源：`plugins/orbit/state/rules.json`
 - 统一工件槽位：`triage / scope / design / plan / execution / verification / review / handoff / task_packet`
-- 通过 skill、提示词与阶段规则推进
+- 通过唯一 `/orbit:pilot` 入口、提示词与阶段规则推进
 
 核心硬规则：
 
@@ -122,19 +122,17 @@ Orbit/
       ├─ .claude-plugin/plugin.json
       ├─ commands/
       │  └─ pilot.md
-      ├─ skills/
-      │  ├─ references/
-      │  │  ├─ state-protocol.md
-      │  │  └─ native-tools.md
-      │  └─ <skill>/SKILL.md
+      ├─ references/
+      │  ├─ state-protocol.md
+      │  └─ native-tools.md
       ├─ agents/
       └─ state/
 ```
 
 - `plugins/orbit/.claude-plugin/plugin.json`：插件清单
 - `commands/pilot.md`：显式 `/orbit:pilot` 工作流入口，禁用模型自动调用
-- `skills/`：阶段能力（scoping / design / planning / execute / verify / reviewing / handoff）
-- `skills/references/`：跨 skill 共享的状态协议与原生工具指南
+- `references/`：跨阶段共享的状态协议与原生工具指南
+- `/orbit:pilot` 内部阶段：scoping / design / planning / execute / verify / reviewing / handoff，不暴露为 Claude Code skill
 - `agents/`：单次执行角色（executor / evaluator / spec-compliance-evaluator / code-quality-evaluator）
 - `state/`：状态 schema 与 examples
 
@@ -162,7 +160,7 @@ Orbit/
 
 - 状态机约束阶段与事件
 - `todo` 约束当前动作序列
-- 通过提示词约定、skill 约束与人工抽查维持合法状态
+- 通过提示词约定、状态协议与人工抽查维持合法状态
 
 ## 一句话总结
 

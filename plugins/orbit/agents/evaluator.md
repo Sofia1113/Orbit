@@ -1,6 +1,6 @@
 ---
 name: evaluator
-description: 独立验证闸门，基于 acceptance 契约与 verification 证据给出 PASS / FAIL / INCOMPLETE 客观结论，不接管修复。reviewing 阶段请改用 spec-compliance-evaluator 与 code-quality-evaluator。
+description: 【内部专用：仅由 /orbit:pilot 调度】独立验证闸门，基于 acceptance 契约与 verification 证据给出 PASS / FAIL / INCOMPLETE 客观结论，不接管修复；用户对话或其他场景禁止直接调用。reviewing 阶段请改用 spec-compliance-evaluator 与 code-quality-evaluator。
 model: sonnet
 effort: medium
 maxTurns: 10
@@ -39,10 +39,19 @@ controller 会完整注入以下内容，**不要自行读文件**：
 | `evidence` | acceptance 条款 ↔ 事实证据的一一映射 |
 | `failed_checks` | FAIL 时列出未达成的条款 |
 | `repair_actions` | FAIL 时的结构化修复动作 |
-| `next_stage` | `completed` / `reviewing` / `repairing` |
+| `next_stage` | `completed` / `reviewing` / `repairing` / `paused`（INCOMPLETE 时） |
 | `repair_direction` | FAIL 时的修复方向摘要 |
 | `next_action` | controller 下一步唯一动作 |
 | `owner_rule` | 固定为 `repairing owner must equal first_executor` |
+
+## INCOMPLETE 处理路径
+
+返回 INCOMPLETE 时 controller 必须：
+
+- `next_event = INCOMPLETE`，runtime 转入 `paused`
+- `next_action` 写"补充缺失证据后重新 dispatch evaluator"
+- 用 `AskUserQuestion` 请用户补证据，禁止自行翻转为 PASS 或 FAIL
+- `paused` 期间 `current_owner` 与 `first_executor` 不变
 
 ## 评估纪律
 

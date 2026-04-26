@@ -2,7 +2,7 @@
 
 本目录是 Orbit 的**规则与协议权威源**。
 
-Command / Skill 文本是面向模型的指令副本，本目录的 JSON / Schema 是机器与评估器的权威。当两者冲突时，以本目录为准；修改规则请先改本目录，再同步 command / skill 文本。
+Command 文本与 references 文档是面向模型的指令副本，本目录的 JSON / Schema 是机器与评估器的权威。当两者冲突时，以本目录为准；修改规则请先改本目录，再同步 command / references 文本。
 
 ## 文件清单
 
@@ -18,12 +18,12 @@ Command / Skill 文本是面向模型的指令副本，本目录的 JSON / Schem
 
 1. `runtime-state.schema.json`（运行时 schema，可程序化校验）
 2. `rules.json`（语义规则与闸门）
-3. Command / Skill 文本（对模型的指令副本，不具权威性）
+3. Command / references 文本（对模型的指令副本，不具权威性）
 
 任何规则新增 / 修改流程：
 
 1. 先更新对应 schema 或 json
-2. 再同步受影响的 command / skill 文本
+2. 再同步受影响的 command / references 文本
 3. 若涉及锚点 / 字段名，确认 `rules.json.gates.preflight.rules` 里的锚点仍然对齐
 
 ## 运行时根目录
@@ -32,7 +32,7 @@ Command / Skill 文本是面向模型的指令副本，本目录的 JSON / Schem
 
 ```
 .orbit/state/<task_id>/
-├─ runtime.json          # 每次 skill 结束时回写
+├─ runtime.json          # 每个阶段结束时回写
 ├─ handoff.json          # 存在时是后续会话恢复的最高优先级源
 ├─ triage.md / scope.md / design.md / plan.md
 ├─ task_packet.json
@@ -45,7 +45,7 @@ Command / Skill 文本是面向模型的指令副本，本目录的 JSON / Schem
 
 改动影响 → 必须同步的文件：
 
-- 新增事件枚举 → `runtime-state.schema.json` + `rules.json.event_stage_transitions` + 相关 skill
-- 新增闸门 → `rules.json.gates` + 相关 skill 的"特有退出条件"段
+- 新增事件枚举 → `runtime-state.schema.json` + `rules.json.event_stage_transitions` + 相关阶段说明
+- 新增闸门 → `rules.json.gates` + 相关阶段说明 的"特有退出条件"段
 - 调整密度路径 → `rules.json.density_stage_paths` + `/orbit:pilot` command 的 rubric
 - 新增工件槽位 → `runtime-state.schema.json.artifacts` + `references/state-protocol.md` 的 artifacts 表 + `rules.json.persistence.recovery_priority`

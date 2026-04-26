@@ -5,7 +5,7 @@
 - 基于思考密度的 low / medium / high 路由
 - executor / evaluator 分离，修复固定回首次执行者
 - 以 handoff 恢复载荷为中心的跨会话恢复
-- 由显式 command / skill / agent / 状态 schema / 规则文件组合成的工作流骨架
+- 由唯一显式 `/orbit:pilot` 入口、内部阶段状态、agent、状态 schema 与规则文件组合成的工作流骨架
 - 以文件化 SSOT 驱动的状态机内核
 - 以 Claude Code 原生 task 工具（`TaskCreate` / `TaskUpdate` / `TaskList`）作为阶段执行的源权威
 
@@ -16,22 +16,20 @@ plugins/orbit/
 ├─ .claude-plugin/plugin.json
 ├─ commands/
 │  └─ pilot.md               # 显式 /orbit:pilot 入口，禁用模型自动调用
-├─ skills/
-│  ├─ references/
-│  │  ├─ state-protocol.md   # 状态目录、runtime.json、artifacts、任务清单、跨会话恢复
-│  │  └─ native-tools.md     # Claude Code 原生工具集成指南
-│  └─ <skill>/SKILL.md       # 阶段决策逻辑 + 输出 + 阶段特有退出条件
+├─ references/
+│  ├─ state-protocol.md      # 状态目录、runtime.json、artifacts、任务清单、跨会话恢复
+│  └─ native-tools.md        # Claude Code 原生工具集成指南
 ├─ agents/                   # executor / evaluator / spec-compliance / code-quality
 └─ state/                    # 运行时 schema + rules + examples
 ```
 
 ## 使用入口
 
-从 `/orbit:pilot` 开始。pilot 是显式斜杠命令，已禁用模型自动调用；普通工程任务不会因为插件存在而自动进入 Orbit。pilot 只回答一个问题：这次任务该走多重的流程？
+从 `/orbit:pilot` 开始。`/orbit:pilot` 是唯一外部斜杠命令入口，已禁用模型自动调用；普通工程任务不会因为插件存在而自动进入 Orbit。pilot 只回答一个问题：这次任务该走多重的流程？
 
-- 已知小改动 → `low`：直接执行，再做轻量独立验证
-- 目标明确但边界未知 → `medium`：先收敛 in_scope / out_of_scope / acceptance，再执行
-- 需要方案取舍或架构判断 → `high`：先设计并让用户批准，再规划、执行、验证与审查
+- 已知小改动 → `low_engine`：直接执行，再做轻量独立验证
+- 目标明确但边界未知 → `medium_engine`：先收敛 in_scope / out_of_scope / acceptance，再拆成一个或多个 `low_engine`，最后做集成验证
+- 需要方案取舍或架构判断 → `high_engine`：先询问是否使用 `git worktree`，再设计、规划、拆成一个或多个 `medium_engine`，最后做集成验证与审查
 
 用户在使用 Orbit 时应始终能看到三件事：当前阶段在解决什么问题、失败后有哪些选择、下一步唯一动作是什么。
 
@@ -50,14 +48,11 @@ plugins/orbit/
 
 ## 内置能力
 
-- `/orbit:pilot`：显式统一入口，按密度路由；禁用模型自动调用
-- `scoping`：medium 任务的边界收敛
-- `design`：high 任务的方案设计与用户批准
-- `planning`：high 任务的方案拆解与 task_packet 产出
-- `execute`：实现执行
-- `verify`：独立 evaluator 验证闸门
-- `reviewing`：high 任务的双阶段审查闸门
-- `handoff`：跨会话 / 跨子代理恢复交接
+- `/orbit:pilot`：唯一外部斜杠入口，按密度路由到内部 engine；禁用模型自动调用
+- `low_engine`：目标明确任务的 execute → verify 闭环
+- `medium_engine`：scoping 后拆成一个或多个 `low_engine`，全部通过后执行集成验证
+- `high_engine`：worktree 决策 → design → planning → 一个或多个 `medium_engine` → 集成验证 → reviewing
+- `scoping` / `design` / `planning` / `execute` / `verify` / `reviewing` / `handoff`：命令内部阶段，由 `/orbit:pilot` 与 engine 状态推进，不暴露为 Claude Code skill
 - `executor` (subagent)：单次任务实现执行者
 - `evaluator` (subagent)：verify 阶段独立评估者
 - `spec-compliance-evaluator` (subagent)：reviewing 第一阶段
@@ -88,7 +83,7 @@ plugins/orbit/
 
 - `DOWNGRADE_DENSITY`：仅允许在 `scoping` / `designing` / `planning` 期间发起
 - `ESCALATE_DENSITY`：允许在 `scoping` / `designing` / `planning` / `executing` 期间发起；在 `executing` 发起时必须先产出 `handoff_reason='escalate_density'` 的迁移 handoff，再切换到新 density 入口阶段（low→scoping，medium→designing）
-- `SUBTASK_SPAWNED` / `SUBTASK_COMPLETED`：high 任务可通过 planning 标记 `spawn_subtask`，派发独立 medium 子任务
+- `SUBTASK_SPAWNED` / `SUBTASK_COMPLETED`：`high_engine` 可通过 planning 派发 medium 子任务，`medium_engine` 可拆成一个或多个 low 子任务；父任务必须等全部子任务验证通过后才能集成验证
 - `NEEDS_CONTEXT` / `BLOCKED` / `DONE_WITH_CONCERNS`：executor 四态返回
 
 ### 核心硬规则
@@ -117,7 +112,7 @@ plugins/orbit/
 
 统一槽位：`triage / scope / design / plan / execution / verification / review / handoff / task_packet`。未使用为 `null`。
 
-详细写入时机与内容见 `skills/references/state-protocol.md`。
+详细写入时机与内容见 `references/state-protocol.md`。
 
 ## 文件化 SSOT
 
@@ -150,10 +145,16 @@ handoff.json
 
 ## 闭环规则
 
+### 用户打断与阶段回退
+
+- 自动化默认沿 `next_action` 推进，只有 worktree 选择、design approval、范围变化、用户打断、连续失败超限或风险越界时暂停。
+- 用户提出新决策或建议时，先判断影响范围：实现细节回退到 `executing`，边界变化回退到 `scoping`，方案变化回退到 `designing`，拆解变化回退到 `planning`，评估失败修复回退到 `repairing`。
+- 回退不得新增 runtime stage；必要时记录 `PAUSE` / `NEEDS_CONTEXT` / `BLOCKED`，并在 `next_action` 中写明唯一恢复动作。
+
 ### 评估与修复（独立 evaluator）
 
-- `verify` skill **禁止自评**，必须 dispatch 独立 `evaluator` subagent 给出 PASS / FAIL
-- `reviewing` skill 必须做**两阶段独立审查**：
+- `verify` 阶段**禁止自评**，必须 dispatch 独立 `evaluator` subagent 给出 PASS / FAIL
+- `reviewing` 阶段必须做**两阶段独立审查**：
   1. spec-compliance evaluator
   2. code-quality evaluator（仅当第一阶段 PASS）
 - evaluator 不得接管修复
@@ -171,12 +172,12 @@ handoff.json
 
 - `handoff` 触发：上下文预算临近 / 子代理边界 / 人工暂停 / 评估失败保留现场 / 大阶段切换
 - `handoff` 是恢复载荷，不是长总结（schema 7 个必填字段）
-- 子代理返回的 `handoff_payload` 由 handoff skill 合并进父 runtime
-- Orbit 不注册 `resume` skill，避免与 Claude Code 官方恢复命令冲突；后续会话恢复直接读取 `.orbit/state/<task_id>/` 工件
+- 子代理返回的 `handoff_payload` 由 handoff 阶段合并进父 runtime
+- Orbit 不注册任何 Claude Code skill，避免与官方能力或其他插件命名冲突；后续会话恢复直接读取 `.orbit/state/<task_id>/` 工件
 
-### Skill 公共模式
+### 阶段公共模式
 
-各 SKILL.md 只描述本阶段独有的决策逻辑、输出契约与特有退出条件。共享内容收敛到 `references/`：
+所有阶段都在 `/orbit:pilot` 内部渐进披露，不暴露为 Claude Code skill。共享内容收敛到 `references/`：
 
 - `references/state-protocol.md`：状态目录、runtime.json、artifacts 槽位、任务清单双层模型、`first_executor` 跨会话恢复语义、退出前通用自检
 - `references/native-tools.md`：Claude Code 原生工具的何时用 / 优先级 / 边界，与子 agent dispatch 纪律
@@ -198,20 +199,11 @@ handoff.json
 
 ## 本地自检
 
-```bash
-# 全量自检：schema / rules / docs / examples 一致性
-node plugins/orbit/scripts/validate-orbit-state.mjs
+Orbit 不提供额外 validator 或门禁脚本；状态正确性由 `runtime-state.schema.json`、`rules.json`、`references/state-protocol.md` 与 `/orbit:pilot` 的退出条件共同约束。
 
-# 单 runtime 自检（每个 skill 退出前调用）
-node plugins/orbit/scripts/validate-orbit-state.mjs --runtime .orbit/state/<task_id>/runtime.json
-```
+日常检查建议直接抽读本次任务的 `.orbit/state/<task_id>/runtime.json`、`verification.md`、`review.md`，确认：
 
-第一种模式会检查 `runtime-state.schema.json`、`rules.json` 与 `state/examples/` 的一致性；第二种模式仅校验单个任务的 `runtime.json` 是否符合 schema 与硬规则。
-
-## 最小运行时样例
-
-- `state/examples/valid-runtime-low.json`
-- `state/examples/valid-low.json`
-- `state/examples/valid-medium-resumable.json`
-- `state/examples/valid-high-review-loop.json`
-- `state/examples/invalid-*.json`（非法状态反例）
+- `runtime.json` 必填字段齐全，且没有 schema 外字段
+- `artifacts` 九槽位完整，未使用槽位为 `null`
+- `verification.md` 包含独立 evaluator 的 `## Evaluator Verdict` 与 `result=PASS`
+- high 任务的 `review.md` 同时包含两个独立 review verdict 且均为 PASS

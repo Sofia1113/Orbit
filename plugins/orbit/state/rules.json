@@ -10,6 +10,18 @@
     "high": ["triaged", "designing", "planning", "executing", "verifying", "reviewing", "completed"]
   },
 
+  "engine_model": {
+    "description": "low_engine / medium_engine / high_engine 是内部执行模型，不是 runtime stage。",
+    "external_entrypoint": "/orbit:pilot",
+    "only_external_slash_command": true,
+    "engine_stage_values_forbidden": ["low_engine", "medium_engine", "high_engine"],
+    "low_engine": ["executing", "verifying"],
+    "medium_engine": ["scoping", "low_engine", "integration_verify"],
+    "high_engine": ["worktree_decision", "designing", "planning", "medium_engine", "integration_verify", "reviewing"],
+    "high_requires_worktree_decision_before_design": true,
+    "default_automation": "must_advance_until_completed_or_user_decision_blocker_or_failure_limit"
+  },
+
   "event_stage_transitions": {
     "TRIAGE_DONE": { "low": "executing", "medium": "scoping", "high": "designing" },
     "SCOPE_DONE": "executing",
@@ -31,7 +43,8 @@
     "SUBTASK_COMPLETED": "executing",
     "NEEDS_CONTEXT": "paused",
     "BLOCKED": "paused",
-    "DONE_WITH_CONCERNS": "verifying"
+    "DONE_WITH_CONCERNS": "verifying",
+    "INCOMPLETE": "paused"
   },
 
   "gates": {
@@ -43,14 +56,16 @@
         "DESIGN_DONE 前 design.md 必须包含 ## User Approval 锚点且 approved_option 非空",
         "EXECUTION_DONE 前必须已有 execution artifact 或明确 changes_made",
         "VERIFY_PASS 或 VERIFY_FAIL 前必须已有 verification artifact",
-        "VERIFY_PASS / VERIFY_FAIL 必须由独立 evaluator subagent 返回，不得由 verify skill 自评",
+        "VERIFY_PASS / VERIFY_FAIL 必须由独立 evaluator subagent 返回，不得由 verify 阶段自评",
         "VERIFY_PASS 前 verification.md 必须包含 ## Evaluator Verdict 锚点且 result=PASS",
         "REVIEW_PASS 必须经过 spec-compliance 与 code-quality 两阶段 evaluator 均 PASS",
         "REVIEW_PASS 前 review.md 必须同时包含 ## Spec Compliance Verdict 与 ## Code Quality Verdict 锚点且均 result=PASS",
         "HANDOFF_SAVED 前必须提供 next_action 与 handoff artifact，且不得改变当前 stage",
         "dispatch subagent 前 controller 必须完整注入 task_packet + scene，禁止让 subagent 读文件",
         "DOWNGRADE_DENSITY 只能在 scoping / designing / planning 期间发起",
-        "ESCALATE_DENSITY 允许在 scoping / designing / planning / executing 期间发起；在 executing 发起时必须先产出迁移 handoff（handoff_reason='escalate_density'）再切换到新 density 入口阶段"
+        "ESCALATE_DENSITY 允许在 scoping / designing / planning / executing 期间发起；在 executing 发起时必须先产出迁移 handoff（handoff_reason='escalate_density'）再切换到新 density 入口阶段",
+        "high_engine 在进入 designing 前必须询问用户是否使用 git worktree，用户选择后继续自动推进",
+        "用户打断必须按影响范围回退到 executing / scoping / designing / planning / repairing / paused 中的正确阶段，不得新增 stage"
       ]
     },
     "revision": {
@@ -101,11 +116,34 @@
   },
 
   "subtask_rules": {
-    "parent_density_must_be": "high",
-    "subtask_default_density": "medium",
+    "allowed_parent_densities": ["medium", "high"],
+    "high_subtask_default_density": "medium",
+    "medium_subtask_default_density": "low",
     "task_id_convention": "<parent_task_id>.<n>",
     "require_injected_task_packet": true,
-    "parent_cannot_complete_before_all_subtasks_verified": true
+    "parent_cannot_complete_before_all_subtasks_verified": true,
+    "failed_subtask_repair_scope": "only_failed_subtask",
+    "aggregation_source": "runtime.todo plus SUBTASK_COMPLETED events"
+  },
+
+  "interruption_rules": {
+    "user_can_interrupt_anytime": true,
+    "pause_triggers": [
+      "high_worktree_decision",
+      "design_approval",
+      "scope_or_planning_ambiguity",
+      "user_interruption",
+      "failure_limit_reached",
+      "out_of_scope_risk"
+    ],
+    "rollback_map": {
+      "implementation_detail": "executing",
+      "scope_or_acceptance_change": "scoping",
+      "architecture_or_option_change": "designing",
+      "decomposition_or_dependency_change": "planning",
+      "evaluator_repair_feedback": "repairing",
+      "missing_external_context": "paused"
+    }
   },
 
   "evaluator_dispatch_rules": {
@@ -120,7 +158,7 @@
     "runtime_file": ".orbit/state/<task_id>/runtime.json",
     "state_persistence_root": ".orbit/state/<task_id>/",
     "subtask_isolated": true,
-    "write_timing": "每个 skill 在结束时回写 runtime.json，同时更新对应工件文件",
+    "write_timing": "每个阶段结束时回写 runtime.json，同时更新对应工件文件",
     "recovery_priority": ["handoff.json", "runtime.json", "最近失败 review.md", "最近失败 verification.md", "最近 execution.md", "其他 artifact", "原始任务描述"],
     "gitignore_on_init": "*"
   },
@@ -128,7 +166,7 @@
   "limits": {
     "consecutive_verify_fail_limit": 3,
     "consecutive_review_fail_limit": 2,
-    "streak_semantics": "verify_fail_streak 在 REPAIR_SUBMITTED 后 +1，VERIFY_PASS 归零；review 循环由 reviewing skill 记录独立计数"
+    "streak_semantics": "verify_fail_streak 在 REPAIR_SUBMITTED 后 +1，VERIFY_PASS 归零；review 循环由 reviewing 阶段记录独立计数"
   },
 
   "hard_rules": {

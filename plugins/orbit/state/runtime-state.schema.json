@@ -64,7 +64,8 @@
         "SUBTASK_COMPLETED",
         "NEEDS_CONTEXT",
         "BLOCKED",
-        "DONE_WITH_CONCERNS"
+        "DONE_WITH_CONCERNS",
+        "INCOMPLETE"
       ]
     },
     "verification_level": { "enum": ["optional", "required", "required_plus_review"] },

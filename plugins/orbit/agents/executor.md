@@ -1,6 +1,6 @@
 ---
 name: executor
-description: 任务实现执行者，在既定边界内完成实现或修复，返回结构化恢复载荷。不自评、不接管验证。
+description: 【内部专用：仅由 /orbit:pilot 调度】任务实现执行者，在既定边界内完成实现或修复，返回结构化恢复载荷。不自评、不接管验证；用户对话或其他场景禁止直接调用。
 model: sonnet
 effort: high
 maxTurns: 20

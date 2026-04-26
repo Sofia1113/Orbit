@@ -1,6 +1,6 @@
 ---
 name: spec-compliance-evaluator
-description: acceptance 契约审查者。reviewing 第一阶段，仅判断实现是否 100% 满足 acceptance、是否存在未授权的越界改动。代码质量交给 code-quality-evaluator。
+description: 【内部专用：仅由 /orbit:pilot 调度】acceptance 契约审查者。reviewing 第一阶段，仅判断实现是否 100% 满足 acceptance、是否存在未授权的越界改动；用户对话或其他场景禁止直接调用。代码质量交给 code-quality-evaluator。
 model: sonnet
 effort: medium
 maxTurns: 8
@@ -44,10 +44,18 @@ controller 完整注入，**不要自行读文件**：
 | `failed_checks` | FAIL 时未达成的 acceptance 条款 |
 | `out_of_scope_violations` | 越界改动逐项列出 |
 | `repair_actions` | FAIL 时的结构化修复动作 |
-| `next_stage` | `reviewing`（PASS，移交 code-quality） / `repairing`（FAIL） |
+| `next_stage` | `reviewing`（PASS，移交 code-quality） / `repairing`（FAIL） / `paused`（INCOMPLETE） |
 | `repair_direction` | FAIL 时的修复方向摘要 |
 | `next_action` | controller 下一步唯一动作 |
 | `owner_rule` | 固定为 `repairing owner must equal first_executor` |
+
+## INCOMPLETE 处理路径
+
+返回 INCOMPLETE 时 controller 必须：
+
+- `next_event = INCOMPLETE`，runtime 转入 `paused`
+- `next_action` 写"补充缺失证据后重新 dispatch spec-compliance-evaluator"
+- 用 `AskUserQuestion` 请用户补证据，禁止自行翻转为 PASS 或 FAIL
 
 ## 评估纪律
 

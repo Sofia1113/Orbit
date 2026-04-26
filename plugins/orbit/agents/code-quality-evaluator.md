@@ -1,6 +1,6 @@
 ---
 name: code-quality-evaluator
-description: 代码质量审查者。reviewing 第二阶段，仅在 spec-compliance PASS 时触发，聚焦分层、抽象、重复、可读性、边界处理、测试完整性。
+description: 【内部专用：仅由 /orbit:pilot 调度】代码质量审查者。reviewing 第二阶段，仅在 spec-compliance PASS 时触发，聚焦分层、抽象、重复、可读性、边界处理、测试完整性；用户对话或其他场景禁止直接调用。
 model: sonnet
 effort: medium
 maxTurns: 8
@@ -44,10 +44,18 @@ controller 完整注入，**不要自行读文件**：
 | `evidence` | 维度 ↔ 事实证据的映射 |
 | `issues` | FAIL 时按维度列出，每项含 `dimension` / `file` / `locator` / `problem` |
 | `repair_actions` | FAIL 时的结构化代码级修复动作 |
-| `next_stage` | `completed`（PASS 且 reviewing 收尾） / `repairing`（FAIL） |
+| `next_stage` | `completed`（PASS 且 reviewing 收尾） / `repairing`（FAIL） / `paused`（INCOMPLETE） |
 | `repair_direction` | FAIL 时的修复方向摘要 |
 | `next_action` | controller 下一步唯一动作 |
 | `owner_rule` | 固定为 `repairing owner must equal first_executor` |
+
+## INCOMPLETE 处理路径
+
+返回 INCOMPLETE 时 controller 必须：
+
+- `next_event = INCOMPLETE`，runtime 转入 `paused`
+- `next_action` 写"补充缺失证据后重新 dispatch code-quality-evaluator"
+- 用 `AskUserQuestion` 请用户补证据，禁止自行翻转为 PASS 或 FAIL
 
 ## 评估纪律
 

@@ -5,7 +5,6 @@
   "author": {
     "name": "Orbit"
   },
-  "skills": "./skills/",
   "agents": [
     "./agents/code-quality-evaluator.md",
     "./agents/evaluator.md",
