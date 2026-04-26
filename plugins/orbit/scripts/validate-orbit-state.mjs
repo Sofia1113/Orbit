@@ -9,6 +9,7 @@ const repoRoot = path.resolve(root, '..', '..');
 const stateDir = path.join(root, 'state');
 const examplesDir = path.join(stateDir, 'examples');
 const skillsDir = path.join(root, 'skills');
+const commandsDir = path.join(root, 'commands');
 
 const readText = (file) => fs.readFileSync(file, 'utf8');
 const readJson = (file) => JSON.parse(readText(file));
@@ -58,7 +59,20 @@ function validatePluginMetadata() {
     push('marketplace.json', `unexpected source ${marketplacePlugin.source}`);
   }
   if (plugin.skills !== './skills/') push('plugin.json', 'skills must point to ./skills/');
-  if (plugin.agents !== './agents/') push('plugin.json', 'agents must point to ./agents/');
+
+  const expectedAgents = [
+    './agents/code-quality-evaluator.md',
+    './agents/evaluator.md',
+    './agents/executor.md',
+    './agents/spec-compliance-evaluator.md'
+  ];
+  if (Array.isArray(plugin.agents)) {
+    for (const expectedAgent of expectedAgents) {
+      if (!plugin.agents.includes(expectedAgent)) push('plugin.json', `missing agent entry ${expectedAgent}`);
+    }
+  } else if (plugin.agents !== './agents/') {
+    push('plugin.json', 'agents must be ./agents/ or list the bundled agent files');
+  }
 }
 
 function validateRuntimeShape(file, data) {
@@ -171,6 +185,7 @@ function validateRules() {
 function validateDocsAndSkills() {
   const rootReadme = readText(path.join(repoRoot, 'README.md'));
   const pluginReadme = readText(path.join(root, 'README.md'));
+  const pilotCommand = readText(path.join(commandsDir, 'pilot.md'));
   const designSkill = readText(path.join(skillsDir, 'design', 'SKILL.md'));
   const verifySkill = readText(path.join(skillsDir, 'verify', 'SKILL.md'));
   const reviewingSkill = readText(path.join(skillsDir, 'reviewing', 'SKILL.md'));
@@ -182,6 +197,9 @@ function validateDocsAndSkills() {
   if (rootReadme.includes('必须进入 `paused`')) push('README.md', 'verify fail limit must ask user instead of forcing paused');
 
   requireText('plugins/orbit/README.md', pluginReadme, '`low`：`triaged → executing → verifying → completed`');
+  requireText('commands/pilot.md', pilotCommand, 'disable-model-invocation: true');
+  requireText('commands/pilot.md', pilotCommand, '触发约束：pilot 是显式斜杠命令入口');
+  if (fs.existsSync(path.join(skillsDir, 'pilot', 'SKILL.md'))) push('skills/pilot/SKILL.md', 'pilot must live under commands/ with disable-model-invocation');
   requireText('skills/design/SKILL.md', designSkill, '## User Approval');
   requireText('skills/verify/SKILL.md', verifySkill, '## Evaluator Verdict');
   requireText('skills/reviewing/SKILL.md', reviewingSkill, '## Spec Compliance Verdict');

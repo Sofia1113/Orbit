@@ -1,9 +1,15 @@
 ---
 name: pilot
-description: Orbit 工作流统一入口。任何工程任务（实现/修复/重构/feature/优化）请求都先调用本 skill：判断密度（low/medium/high），初始化 .orbit 任务目录，路由到 execute / scoping / design。
+description: Orbit 工作流显式入口。仅当用户调用 `/orbit:pilot` 时启动：判断密度（low/medium/high），初始化 .orbit 任务目录，路由到 execute / scoping / design。
+disable-model-invocation: true
+argument-hint: "[task]"
 ---
 
 pilot 解决"任务该走多重的流程"这一个问题。它是密度判定与路由器，不做实现也不做设计。
+
+用户体验目标：让用户明确选择使用 Orbit 后，立刻知道本任务为什么是 low / medium / high，以及下一步唯一会进入哪个阶段。pilot 的输出应短、确定、可追踪，避免把后续阶段的工作提前展开。
+
+触发约束：pilot 是显式斜杠命令入口，不应由模型在普通工程任务中自动调用。只有用户输入 `/orbit:pilot` 或明确要求使用 Orbit 工作流时才运行。
 
 ## triage 双层判断
 
@@ -100,11 +106,11 @@ pilot 解决"任务该走多重的流程"这一个问题。它是密度判定与
 
 - 写入工件：`triage` → `.orbit/state/<task_id>/triage.md`
 - 首次创建 `.orbit/` 目录时同时写入 `.orbit/.gitignore`（内容 `*`）
-- 其他持久化、任务清单、通用退出自检见 [state-protocol.md](../references/state-protocol.md)
+- 其他持久化、任务清单、通用退出自检见 [state-protocol.md](../skills/references/state-protocol.md)
 
 ## 优先工具
 
-`Explore`（不熟悉代码区域时优先于猜测）/ `Glob` / `Grep` / `AskUserQuestion`（兜底）。详见 [native-tools.md](../references/native-tools.md)。
+`Explore`（不熟悉代码区域时优先于猜测）/ `Glob` / `Grep` / `AskUserQuestion`（兜底）。详见 [native-tools.md](../skills/references/native-tools.md)。
 
 ## 本阶段特有退出条件
 

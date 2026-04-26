@@ -120,6 +120,8 @@ Orbit/
 └─ plugins/
    └─ orbit/
       ├─ .claude-plugin/plugin.json
+      ├─ commands/
+      │  └─ pilot.md
       ├─ skills/
       │  ├─ references/
       │  │  ├─ state-protocol.md
@@ -130,7 +132,8 @@ Orbit/
 ```
 
 - `plugins/orbit/.claude-plugin/plugin.json`：插件清单
-- `skills/`：流程入口（pilot / scoping / design / planning / execute / verify / reviewing / handoff）
+- `commands/pilot.md`：显式 `/orbit:pilot` 工作流入口，禁用模型自动调用
+- `skills/`：阶段能力（scoping / design / planning / execute / verify / reviewing / handoff）
 - `skills/references/`：跨 skill 共享的状态协议与原生工具指南
 - `agents/`：单次执行角色（executor / evaluator / spec-compliance-evaluator / code-quality-evaluator）
 - `state/`：状态 schema 与 examples

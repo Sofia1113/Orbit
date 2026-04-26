@@ -6,6 +6,11 @@
     "name": "Orbit"
   },
   "skills": "./skills/",
-  "agents": "./agents/",
+  "agents": [
+    "./agents/code-quality-evaluator.md",
+    "./agents/evaluator.md",
+    "./agents/executor.md",
+    "./agents/spec-compliance-evaluator.md"
+  ],
   "keywords": ["workflow", "state-machine", "tasks", "evaluation", "marketplace"]
 }

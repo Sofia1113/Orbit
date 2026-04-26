@@ -5,7 +5,7 @@
 - 基于思考密度的 low / medium / high 路由
 - executor / evaluator 分离，修复固定回首次执行者
 - 以 handoff 恢复载荷为中心的跨会话恢复
-- 由 skill / agent / 状态 schema / 规则文件组合成的工作流骨架
+- 由显式 command / skill / agent / 状态 schema / 规则文件组合成的工作流骨架
 - 以文件化 SSOT 驱动的状态机内核
 - 以 Claude Code 原生 task 工具（`TaskCreate` / `TaskUpdate` / `TaskList`）作为阶段执行的源权威
 
@@ -14,18 +14,43 @@
 ```text
 plugins/orbit/
 ├─ .claude-plugin/plugin.json
+├─ commands/
+│  └─ pilot.md               # 显式 /orbit:pilot 入口，禁用模型自动调用
 ├─ skills/
 │  ├─ references/
 │  │  ├─ state-protocol.md   # 状态目录、runtime.json、artifacts、任务清单、跨会话恢复
 │  │  └─ native-tools.md     # Claude Code 原生工具集成指南
-│  └─ <skill>/SKILL.md       # 触发语 + 决策逻辑 + 输出 + 阶段特有退出条件
+│  └─ <skill>/SKILL.md       # 阶段决策逻辑 + 输出 + 阶段特有退出条件
 ├─ agents/                   # executor / evaluator / spec-compliance / code-quality
 └─ state/                    # 运行时 schema + rules + examples
 ```
 
+## 使用入口
+
+从 `/orbit:pilot` 开始。pilot 是显式斜杠命令，已禁用模型自动调用；普通工程任务不会因为插件存在而自动进入 Orbit。pilot 只回答一个问题：这次任务该走多重的流程？
+
+- 已知小改动 → `low`：直接执行，再做轻量独立验证
+- 目标明确但边界未知 → `medium`：先收敛 in_scope / out_of_scope / acceptance，再执行
+- 需要方案取舍或架构判断 → `high`：先设计并让用户批准，再规划、执行、验证与审查
+
+用户在使用 Orbit 时应始终能看到三件事：当前阶段在解决什么问题、失败后有哪些选择、下一步唯一动作是什么。
+
+## 常见场景
+
+- Bugfix：通常从 `low` 或 `medium` 开始；如果修复过程中发现边界扩大，再升级密度。
+- Feature：需求清楚但落点未知时走 `medium`；需要比较方案时走 `high`。
+- Review loop：高密度任务在 verify PASS 后进入 reviewing，先过 spec-compliance，再过 code-quality。
+
+## 失败与恢复
+
+- `VERIFY_FAIL` / `REVIEW_FAIL` 不会直接换人修复，而是回到 `repairing`，由 `first_executor` 按 repair_actions 继续。
+- evaluator 返回 `INCOMPLETE` 时，Orbit 应请求补证据，而不是自行翻转结论。
+- 连续失败达到上限时，Orbit 会停止自动循环并让用户选择升级密度、重设方案或取消。
+- `handoff.json` 是机器恢复入口，`handoff.md` 是人类接力摘要；恢复时优先读取 handoff，再读 runtime。
+
 ## 内置能力
 
-- `pilot`：统一入口，按密度路由
+- `/orbit:pilot`：显式统一入口，按密度路由；禁用模型自动调用
 - `scoping`：medium 任务的边界收敛
 - `design`：high 任务的方案设计与用户批准
 - `planning`：high 任务的方案拆解与 task_packet 产出
