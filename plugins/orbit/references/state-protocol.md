@@ -21,9 +21,13 @@
 
 `low_engine` / `medium_engine` / `high_engine` 是内部执行模型，不是 runtime `stage`。runtime 仍只使用 `triaged / scoping / designing / planning / executing / verifying / reviewing / repairing / paused / completed / cancelled`。
 
-- `low_engine`：`executing → verifying`，用于目标明确的单元任务。
-- `medium_engine`：`scoping → N × low_engine → integration_verify`，用于先收敛边界再拆分执行的任务。
-- `high_engine`：`worktree decision → designing → planning → N × medium_engine → integration_verify → reviewing`，用于需要方案取舍或架构判断的任务。
+- `low_engine`：内部 workflow，目标明确任务或 low 子任务的 `executor → evaluator` 闭环。完整内容见 `references/engine-low.md`。
+- `medium_engine`：内部 workflow，收敛边界，递归运行一个或多个 `low_engine`，再做父级 integration verify。完整内容见 `references/engine-medium.md`。
+- `high_engine`：内部 workflow，架构设计，递归运行一个或多个 `medium_engine`，再做端到端 integration verify 与 review。完整内容见 `references/engine-high.md`。
+
+分层调度是强制协议：medium 不得直接把多个 low 子任务当作普通 todo 完成；high 不得直接把多个 medium 子任务当作普通 todo 完成。每一层都必须递归运行对应内部 workflow，并在父层完成自己的集成验收；engine 不是 agent、不是 skill、不是 runtime stage。
+
+渐进式披露规则：state-protocol 与 pilot 只保留 engine 的作用、能力和完整内容路径；只有进入对应 engine 前，才读取对应 `references/engine-*.md` 的完整内容。
 
 `/orbit:pilot` 是唯一外部斜杠入口。Orbit 不暴露任何 Claude Code skill；阶段只作为命令内部的渐进式工作流状态，由 engine 的 `next_action` 驱动。pilot 是 engine controller，默认从 triage 自动推进到当前 density 的自然完成点，而不是只输出 triage 结果。
 
@@ -179,8 +183,20 @@ handoff.json
 - `parent_task_id`: 父任务 id
 - `subtask_index`: 子任务序号
 - `density`: 子任务密度
+- `dependency_mode`: `parallel` / `serial` / `mixed` / `none`
+- `integration_role`: `leaf` / `parent_integration` / `end_to_end_integration`
 
 依赖图、聚合策略、失败传播和回退说明写入 `plan.md`、`runtime.todo[]` 或 handoff。父任务不得在所有子任务 `VERIFY_PASS` 前进入 reviewing 或 completed。
+
+## 分层 engine 验收协议
+
+完整协议按需读取：
+
+- `medium → low_engine`：见 `references/engine-medium.md`
+- `high → medium_engine`：见 `references/engine-high.md`
+- low 子任务闭环：见 `references/engine-low.md`
+
+本文件只保留共同硬约束：父任务不得在所有子任务 PASS 前完成；父级 integration verify 必须由独立 evaluator PASS；并行执行必须在 `plan.md` 说明 `dependency_mode` 与安全理由。
 
 ## handoff 人类摘要
 

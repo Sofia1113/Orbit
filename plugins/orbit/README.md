@@ -3,8 +3,11 @@
 `orbit` 是 `orbit-marketplace` 中的一个 Claude Code 插件，面向复杂软件工程任务提供：
 
 - 基于思考密度的 low / medium / high 路由
+- medium / high 的多阶段交互式需求发现
+- high 的系统架构师设计与架构评审
 - executor / evaluator 分离，修复固定回首次执行者
 - 以 handoff 恢复载荷为中心的跨会话恢复
+- high→medium_engine→low_engine 的内部递归工作流与父级集成验收
 - 由唯一显式 `/orbit:pilot` 入口、内部阶段状态、agent、状态 schema 与规则文件组合成的工作流骨架
 - 以文件化 SSOT 驱动的状态机内核
 - 以 Claude Code 原生 task 工具（`TaskCreate` / `TaskUpdate` / `TaskList`）作为阶段执行的源权威
@@ -17,9 +20,12 @@ plugins/orbit/
 ├─ commands/
 │  └─ pilot.md               # 显式 /orbit:pilot 入口，禁用模型自动调用
 ├─ references/
+│  ├─ triage-density.md      # density 判定规则
+│  ├─ pilot-contract.md      # pilot 输出、工件与退出契约
 │  ├─ state-protocol.md      # 状态目录、runtime.json、artifacts、任务清单、跨会话恢复
+│  ├─ engine-low.md / engine-medium.md / engine-high.md
 │  └─ native-tools.md        # Claude Code 原生工具集成指南
-├─ agents/                   # executor / evaluator / spec-compliance / code-quality
+├─ agents/                   # brainstormer / architect / executor / evaluator / review evaluators
 └─ state/                    # 运行时 schema + rules + examples
 ```
 
@@ -28,8 +34,8 @@ plugins/orbit/
 从 `/orbit:pilot` 开始。`/orbit:pilot` 是唯一外部斜杠命令入口，已禁用模型自动调用；普通工程任务不会因为插件存在而自动进入 Orbit。pilot 只回答一个问题：这次任务该走多重的流程？
 
 - 已知小改动 → `low_engine`：直接执行，再做轻量独立验证
-- 目标明确但边界未知 → `medium_engine`：先收敛 in_scope / out_of_scope / acceptance，再拆成一个或多个 `low_engine`，最后做集成验证
-- 需要方案取舍或架构判断 → `high_engine`：先询问是否使用 `git worktree`，再设计、规划、拆成一个或多个 `medium_engine`，最后做集成验证与审查
+- 目标明确但边界未知 → `medium_engine`：必要时先由 `brainstormer` 做需求发现，再收敛 in_scope / out_of_scope / acceptance，拆成一个或多个可并行的 `low_engine`，最后做集成验证
+- 需要方案取舍或架构判断 → `high_engine`：先询问是否使用 `git worktree`，必要时由 `brainstormer` 发现真实需求，再由 `architect` 设计、规划、拆成一个或多个可并行的 `medium_engine`，最后做端到端集成验证、架构评审与审查
 
 用户在使用 Orbit 时应始终能看到三件事：当前阶段在解决什么问题、失败后有哪些选择、下一步唯一动作是什么。
 
@@ -49,14 +55,16 @@ plugins/orbit/
 ## 内置能力
 
 - `/orbit:pilot`：唯一外部斜杠入口，按密度路由到内部 engine；禁用模型自动调用
-- `low_engine`：目标明确任务的 execute → verify 闭环
-- `medium_engine`：scoping 后拆成一个或多个 `low_engine`，全部通过后执行集成验证
-- `high_engine`：worktree 决策 → design → planning → 一个或多个 `medium_engine` → 集成验证 → reviewing
+- `low_engine`：内部工作流，目标明确任务或 low 子任务的 executor→evaluator 闭环；完整内容见 `references/engine-low.md`
+- `medium_engine`：内部工作流，递归运行一个或多个 `low_engine` 并做父级 integration verify；完整内容见 `references/engine-medium.md`
+- `high_engine`：内部工作流，递归运行一个或多个 `medium_engine` 并做端到端 integration verify 与 review；完整内容见 `references/engine-high.md`
 - `scoping` / `design` / `planning` / `execute` / `verify` / `reviewing` / `handoff`：命令内部阶段，由 `/orbit:pilot` 与 engine 状态推进，不暴露为 Claude Code skill
+- `brainstormer` (subagent)：medium/high 的多阶段需求发现与交互式头脑风暴
+- `architect` (subagent)：high 的系统架构设计与架构评审
 - `executor` (subagent)：单次任务实现执行者
 - `evaluator` (subagent)：verify 阶段独立评估者
-- `spec-compliance-evaluator` (subagent)：reviewing 第一阶段
-- `code-quality-evaluator` (subagent)：reviewing 第二阶段
+- `spec-compliance-evaluator` (subagent)：reviewing 第二阶段
+- `code-quality-evaluator` (subagent)：reviewing 第三阶段
 
 ## 任务状态模型
 
@@ -83,7 +91,7 @@ plugins/orbit/
 
 - `DOWNGRADE_DENSITY`：仅允许在 `scoping` / `designing` / `planning` 期间发起
 - `ESCALATE_DENSITY`：允许在 `scoping` / `designing` / `planning` / `executing` 期间发起；在 `executing` 发起时必须先产出 `handoff_reason='escalate_density'` 的迁移 handoff，再切换到新 density 入口阶段（low→scoping，medium→designing）
-- `SUBTASK_SPAWNED` / `SUBTASK_COMPLETED`：`high_engine` 可通过 planning 派发 medium 子任务，`medium_engine` 可拆成一个或多个 low 子任务；父任务必须等全部子任务验证通过后才能集成验证
+- `SUBTASK_SPAWNED` / `SUBTASK_COMPLETED`：`high_engine` 可通过 planning 生成 medium 子任务，`medium_engine` 可生成 low 子任务；父任务必须等全部子任务验证通过后才能集成验证，完整细节见对应 `references/engine-*.md`
 - `NEEDS_CONTEXT` / `BLOCKED` / `DONE_WITH_CONCERNS`：executor 四态返回
 
 ### 核心硬规则
@@ -154,9 +162,10 @@ handoff.json
 ### 评估与修复（独立 evaluator）
 
 - `verify` 阶段**禁止自评**，必须 dispatch 独立 `evaluator` subagent 给出 PASS / FAIL
-- `reviewing` 阶段必须做**两阶段独立审查**：
-  1. spec-compliance evaluator
-  2. code-quality evaluator（仅当第一阶段 PASS）
+- `reviewing` 阶段必须做**三阶段独立审查**：
+  1. architect architecture review
+  2. spec-compliance evaluator（仅当 architecture review PASS）
+  3. code-quality evaluator（仅当前两阶段 PASS）
 - evaluator 不得接管修复
 - FAIL 固定回 `repairing`，owner 必须等于 `first_executor`
 - evaluator 返回的 `repair_actions` 必须逐条用 `TaskCreate` 追加为新 todo

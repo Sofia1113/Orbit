@@ -6,6 +6,8 @@
     "name": "Orbit"
   },
   "agents": [
+    "./agents/architect.md",
+    "./agents/brainstormer.md",
     "./agents/code-quality-evaluator.md",
     "./agents/evaluator.md",
     "./agents/executor.md",

@@ -5,151 +5,183 @@ disable-model-invocation: true
 argument-hint: "[task]"
 ---
 
-pilot 解决"任务该走多重的流程"这一个问题。它是 Orbit 唯一用户斜杠入口、密度判定器与层级 engine controller，后续阶段都在本命令内部渐进披露，不暴露任何 Claude Code skill。
+pilot 解决“任务该走多重的流程”这一个问题。它是 Orbit 唯一用户斜杠入口、密度判定器与层级 engine controller，后续阶段都在本命令内部渐进披露，不暴露任何 Claude Code skill。
+
+冷启动硬规则：本命令在任意项目中都必须自包含运行。不要假设能读取插件内 `references/` 或 `state/` 文件；这些文件是维护副本，不是运行时依赖。若支持文件不可读，继续使用本文内嵌协议执行，禁止以“reference 缺失”为理由跳过 `.orbit/state/` 工件或退出契约。
 
 用户体验目标：让用户明确选择使用 Orbit 后，立刻知道本任务为什么是 low / medium / high，并在没有用户决策点、阻塞或评估失败时由 pilot 继续自动推进到该密度的自然完成点。pilot 的中间输出应短、确定、可追踪；不要只在 triage 停下，除非下一阶段必须由用户决策。
 
 触发约束：pilot 是显式斜杠命令入口，并且是 Orbit 唯一外部斜杠入口，不应由模型在普通工程任务中自动调用。只有用户输入 `/orbit:pilot` 或明确要求使用 Orbit 工作流时才运行；Orbit 不暴露任何 Claude Code skill，阶段只作为本命令内部的渐进式工作流状态。
 
-## triage 双层判断
+## 0. 初始化与持久化
 
-**先用启发式快速分流，仅当启发式落入模糊区时再调用客观锚点。** 这样避免 pilot 为取量化证据反复 Explore 浪费 token。
+每次运行必须先确定 `task_id` 与 `title`：
 
-### 第一层：思考密度启发式（默认路径）
+- `task_id` 仅含小写字母、数字、连字符；子任务为 `<parent_task_id>.<n>`。
+- 所有 Orbit 工件必须写入 `.orbit/state/<task_id>/`，子任务写入 `.orbit/state/<parent>.<n>/`。
+- 子任务 runtime 的 `artifacts.*` 路径必须全部指向自己的 `.orbit/state/<parent>.<n>/` 目录，禁止复用父任务 `.orbit/state/<parent>/` 的任意 artifact 路径。
+- 任何已写入磁盘的工件都必须登记到同一任务 runtime 的对应 `artifacts` 槽位；尤其 low 子任务写了 `triage.md` 时，`artifacts.triage` 必须是 `.orbit/state/<child_task_id>/triage.md`，禁止为 `null`。
+- 首次创建 `.orbit/` 时同时写入 `.orbit/.gitignore`，内容仅一行 `*`。
+- 不要写 `.orbit/<task_id>/`、仓库根目录或其他状态目录。
 
-按顺序提问，首个 Yes 即为最终 density；全部 No → low。
+`runtime.json` 必须只包含这些字段，禁止 schema 外字段：
 
-**Q1（思考密度）**：本任务是否需要在多种实现方案之间做权衡，或需要架构性设计判断？
+```json
+{
+  "task_id": "<path-safe-id>",
+  "title": "<可读标题>",
+  "density": "low | medium | high",
+  "stage": "triaged | scoping | designing | planning | executing | verifying | reviewing | repairing | paused | completed | cancelled",
+  "status": "active | paused | completed | cancelled",
+  "goal": "<一句话目标>",
+  "first_executor": "primary-session",
+  "current_owner": "primary-session",
+  "next_action": "<下一步唯一动作>",
+  "last_event": "TRIAGE_DONE | SCOPE_DONE | DESIGN_DONE | PLAN_DONE | EXECUTION_DONE | VERIFY_PASS | VERIFY_FAIL | REVIEW_PASS | REVIEW_FAIL | REPAIR_SUBMITTED | HANDOFF_SAVED | PAUSE | CANCEL | COMPLETE | ESCALATE_DENSITY | DOWNGRADE_DENSITY | SUBTASK_SPAWNED | SUBTASK_COMPLETED | NEEDS_CONTEXT | BLOCKED | DONE_WITH_CONCERNS | INCOMPLETE",
+  "verification_level": "optional | required | required_plus_review",
+  "repair_direction": null,
+  "verify_fail_streak": 0,
+  "artifacts": {
+    "triage": ".orbit/state/<task_id>/triage.md",
+    "scope": null,
+    "design": null,
+    "plan": null,
+    "execution": null,
+    "verification": null,
+    "review": null,
+    "handoff": null,
+    "task_packet": null
+  },
+  "todo": [],
+  "triage_result": {
+    "decision_path": "Q1 | Q2 | Q3",
+    "density": "low | medium | high",
+    "rationale": "<决策理由>",
+    "hard_rules_triggered": []
+  }
+}
+```
 
-- 信号："有几种做法" / "怎么设计" / "架构应该怎么拆"，跨模块协议、选型分歧、新模块引入
-- → Yes = **high**，路由到 `high_engine`；进入 design 前确认是否使用 `git worktree`，若用户原始任务已明确说明“使用 / 不使用 worktree”，记录该决定并继续
+`task_packet.json` 必须只包含以下 schema 字段：`task_id`、`parent_task_id`、`density`、`stage`、`task_spec`、`scene`、`files_in_scope`、`acceptance`、`out_of_scope`、`next_action`、`spawn_subtask`、`subtask_index`、`dependency_mode`、`integration_role`。必填字段：`task_id`、`stage`、`task_spec`、`scene`、`files_in_scope`、`acceptance`、`out_of_scope`、`next_action`。不要写 `title`、`goal`、`allowed_changes` 或 engine 名称。`spawn_subtask` 只能是 boolean；不需要派生下一层子任务时必须写 `false`，禁止写字符串或 `null`。`subtask_index` 只能在真实子任务包中写整数，父任务必须写 `null`；真实子任务必须写非空 `parent_task_id`。`dependency_mode` 只能是 `parallel` / `serial` / `mixed` / `none`；`integration_role` 只能是 `leaf` / `parent_integration` / `end_to_end_integration`，普通 low 任务与 medium/high 父执行包都按实际角色填写。
 
-**Q2（边界密度）**：本任务的改动范围是否需要先收敛边界、明确"做什么 / 不做什么"才能开始编码？
+`runtime.todo[]` 的每一项只能包含 `id`、`text`、`status` 三个字段；`status` 只能是 `pending` / `in_progress` / `done`。禁止写 `content`、`completed` 或其他 Task 工具内部字段名。
 
-- 信号：目标区域未知、需先理解现有系统能力才能定范围、改动可能跨越多个未知文件、用户要求“找出 / 定位 / 先明确边界”后再修改
-- 即使最终只改 1 个文件，只要执行前必须先定位目标文件或确认修改边界，也判为 **medium**
-- → Yes = **medium**，路由到 `medium_engine`
+统一工件槽位：`triage / scope / design / plan / execution / verification / review / handoff / task_packet`。未使用槽位必须显式为 `null`。`verification_level` 必须按 density 固定写入：low=`optional`、medium=`required`、high=`required_plus_review`，禁止随意上调或下调。每个阶段结束时必须立即回写 `runtime.json`；禁止已经写出后续工件但 runtime 仍停留在旧 stage。阶段写入是原子动作：写 `execution.md` 后立刻把 runtime 更新为 `stage=verifying`、`last_event=EXECUTION_DONE`、`artifacts.execution=<execution.md>`；写 `verification.md` PASS 后立刻把 runtime 更新为 completed；写 `design.md` 后立刻进入 planning 或 paused；写 `plan.md` 后立刻进入 executing。
 
-**Q3（实现密度）**：本任务是否目标明确、单轮可完成、无设计分歧？
+## 1. triage 密度判断
 
-- 信号："把 X 改成 Y" / "加一个 Z 参数" / "修这个拼写错误"；单文件 / 已知路径 / 一句话描述完
-- → Yes = **low**，路由到 `low_engine`
+按顺序提问，首个 Yes 即为最终 density；全部 No 则为 low。
 
-启发式信号清晰时直接出 `decision_path` 与 `density`，不必进入第二层。
+**Q1（思考密度）**：本任务是否需要多种实现方案之间的权衡，或需要架构性设计判断？信号：方案比较、架构拆分、跨模块协议、选型分歧、新模块引入。Yes → `high`，`decision_path=Q1`。
 
-### 第二层：客观锚点（仅当第一层模糊时调用）
+**Q2（边界密度）**：本任务是否需要先收敛边界、明确做什么/不做什么才能开始编码？信号：目标区域未知、需先理解现有系统、可能跨多个未知文件、用户原始任务要求“找出 / 定位 / 先明确 / 搜索 / 相关逻辑 / 使用边界”。Yes → `medium`，`decision_path=Q2`。若用户原始任务包含这些边界动词，即使后续搜索很快定位到单个文件，也必须保持 `medium`，禁止降级成 `low`。
 
-进入条件：
+**Q3（实现密度）**：本任务是否目标明确、单轮可完成、无设计分歧？信号：已知路径、单文件或少量已知文件、一句话能描述改动。Yes → `low`，`decision_path=Q3`。
 
-1. Q1 / Q2 / Q3 都"半信半疑"，信号弱
-2. 用户描述与代码事实可能冲突（用户说"很简单"但任务可能跨多模块）
+启发式清晰时不要为形式感调用 Explore。模糊时用 `Explore` 获取事实；仍模糊时用 `AskUserQuestion`。硬规则：需要 review gate 或多阶段恢复至少 high；需求模糊且需要方案比较为 high；需要先收敛边界至少 medium；用户原始任务包含“找出 / 定位 / 先明确 / 搜索 / 相关逻辑 / 使用边界”时至少 medium，不得在定位完成后改判为 low。
 
-进入前**先调用 `Explore` agent** 取事实，再对照锚点判断：
+triage 后必须写 `.orbit/state/<task_id>/triage.md` 与初始 `runtime.json`，然后立即自动进入对应 engine。
 
-**Q1 锚点（任一满足即判 high）**：
+## 2. 路由与事件路径
 
-- 涉及 ≥2 个模块的接口 / 协议变更
-- 存在 ≥2 种可互相替代的实现路径且无法立即排除
-- 改动会影响其他团队 / 系统的数据契约
+`low_engine` / `medium_engine` / `high_engine` 是内部执行模型，不是 runtime stage。runtime stage 只能使用：`triaged / scoping / designing / planning / executing / verifying / reviewing / repairing / paused / completed / cancelled`。
 
-**Q2 锚点（满足第 1 条，或第 2/3 条同时出现时判 medium）**：
+密度路径：
 
-- 涉及 ≥3 个需要修改的文件且边界未划定
-- 目标代码区域无现有测试覆盖且上次修改 >30 天
-- 用户描述缺具体文件路径或接口名称，且 Explore 后仍无法定位明确改动点
+- low：`triaged → executing → verifying → completed`
+- medium：`triaged → scoping → executing → verifying → completed`
+- high：`triaged → designing → planning → executing → verifying → reviewing → completed`
 
-**Q3 锚点（必须全部满足才判 low）**：
+事件转换：`TRIAGE_DONE` 后 low→executing、medium→scoping、high→designing；`SCOPE_DONE`→executing；`DESIGN_DONE`→planning；`PLAN_DONE`→executing；`EXECUTION_DONE`→verifying；`VERIFY_PASS` 后 low/medium→completed、high→reviewing；`VERIFY_FAIL`/`REVIEW_FAIL`→repairing；`REPAIR_SUBMITTED`→verifying；`REVIEW_PASS`→completed；`NEEDS_CONTEXT`/`BLOCKED`/`INCOMPLETE`→paused。
 
-- 涉及文件数 ≤3 且已知路径
-- 改动逻辑可用一句话完整描述
-- 不涉及新增模块 / 抽象 / 接口
+共同硬规则：execute 不写验证结论；verify 必须 dispatch 独立 `evaluator`；`verification.md` 的 evaluator 名称必须固定写 `orbit:evaluator`，禁止写 `primary-session-as-independent-evaluator`、`independent-evaluator` 或任何伪装名称。high reviewing 必须先由 `architect` 做 architecture review，再依次 dispatch `spec-compliance-evaluator` 与 `code-quality-evaluator`。
 
-### 硬规则（优先于两层判断）
+## 3. low_engine
 
-- 需要 review gate 或多阶段恢复 → 至少 `high`
-- 需求模糊且需要方案比较 → `high`
-- 需要先收敛边界 → 至少 `medium`
+适用：目标明确、边界已知、无需方案取舍的 low 任务或 low 子任务。
 
-### 仍模糊时
+流程：
 
-第二层锚点检查后仍无法稳定判断 → 用 `AskUserQuestion` 请用户确认 density，并把答案写入 `triage_result.rationale`。
+1. stage 推进到 `executing`，写 `task_packet.json`。
+2. dispatch `executor`，完整注入 `task_packet`、当前 action 与必要 scene；executor 不得读 scope/plan/design 文件，不得自评。
+3. 完成任何代码 Edit/Write 后，必须先收集 diff、测试输出、运行日志或人工可观察证据，立即写 `execution.md`，再继续任何验证或父级聚合。
+4. stage 推进到 `verifying`，dispatch 独立 `evaluator`，完整注入 `task_packet`、execution 摘要、验证证据和 acceptance。
+5. PASS：写 `verification.md`，必须包含 `## Evaluator Verdict`、固定 evaluator 名称 `orbit:evaluator`、`result=PASS` 与 acceptance→证据映射；runtime 写 `stage=completed`、`status=completed`、`last_event=VERIFY_PASS`，并必须将 `verify_fail_streak` 重置为 `0`。
+6. FAIL：进入 `repairing`，`current_owner=first_executor`，逐条 `repair_actions` 追加 todo，再由首次执行者修复。
+7. INCOMPLETE：进入 `paused`，`next_action` 写明唯一缺失证据。
 
-## 路由与自动推进
+low 最少工件：`triage.md`、`task_packet.json`、`execution.md`、`verification.md`、`runtime.json`。普通 low 与任何 low 子任务都必须满足；对应 runtime 的 `artifacts.triage`、`artifacts.task_packet`、`artifacts.execution`、`artifacts.verification` 都必须非空并指向自己的任务目录。
 
-pilot 是 engine controller，不是只做 triage 的分类器。完成 triage 后必须立即沿对应 engine 自动推进，直到任务 completed，或遇到明确暂停条件。
+## 4. medium_engine
 
-| density | 内部 engine | 自动推进路径 | 允许暂停点 |
-|---|---|---|---|
-| low | low_engine | `triaged → executing → verifying → completed` | 缺上下文、执行阻塞、verify FAIL / INCOMPLETE、用户打断 |
-| medium | medium_engine | `triaged → scoping → executing → verifying → completed` | scoping 发现必须由用户选择的边界、执行阻塞、verify FAIL / INCOMPLETE、用户打断 |
-| high | high_engine | `triaged → worktree decision → designing → planning → executing → verifying → reviewing → completed` | worktree 决策、design approval、planning 歧义、执行阻塞、verify/review FAIL 或 INCOMPLETE、用户打断 |
+适用：目标明确但边界需要收敛的任务。
 
-medium 的 scoping 规则：如果用户已在原始任务中给出足够边界（例如明确“放在 site/xxx.html”“不新增依赖”“验收项如下”），不得再停下询问；直接写 `scope.md` 并继续 executing。只有存在多个合理落点且原始任务没有偏好，或执行会越过未知边界时，才用 `AskUserQuestion` 暂停。
+流程：
 
-### 执行算法
+1. stage 推进到 `scoping`，确认父任务 `in_scope`、`out_of_scope`、`acceptance` 与 `files_in_scope`。
+2. 若真实目标、边界或验收不足，dispatch `brainstormer`；若信息足够，不为形式感提问。
+3. 写 `scope.md` 后必须在同一连续推进段内立刻写 `plan.md`、父 `task_packet.json`、low 子任务 runtime 与子任务 `task_packet.json`，并进入子任务执行；禁止把这些写入拆成多个观察/等待回合。
+4. 生成一个或多个 low 子任务，task id 为 `<parent_task_id>.<n>`；每个子任务有独立 runtime 与 task_packet。冷启动回合预算内优先生成一个覆盖完整验收的 low 子任务；只有存在互相独立且真实必要的文件/接口边界时才拆多个子任务。
+5. 在父 `plan.md` 或 runtime todo 中记录依赖：`dependency_mode=parallel|serial|mixed|none`。只有文件范围不重叠且无接口/迁移/生成物/acceptance 依赖时才可并行；并行安全理由必须写入 `plan.md`。
+6. 对每个 low 子任务递归运行 low_engine，不得把多个 low 子任务合并成普通 todo 跳过 low_engine。low 子任务 PASS 后必须立即回到父 medium，补写父 `execution.md` 与 `verification.md`。
+7. 所有 low 子任务 evaluator PASS 后，父 medium 才能进入 integration verify。
+8. 父 integration verify 必须验证组合后的接口、状态、数据流、UI 或行为效果，不能只汇总子任务 PASS。
+9. dispatch 独立 `evaluator`；父 `verification.md` 必须包含 `## Parent Integration Verification` 与 `## Evaluator Verdict`，PASS 后 runtime 写 `stage=completed`、`last_event=VERIFY_PASS`，并必须将 `verify_fail_streak` 重置为 `0`。
 
-1. 先创建或更新本阶段 `TaskCreate` 清单，并保持任意时刻只有一个 `in_progress`。
-2. 初始化 `.orbit/.gitignore` 与 `.orbit/state/<task_id>/`，写入 `triage.md` 和 schema 合法的 `runtime.json`。
-3. 为执行阶段写入 `task_packet.json`；即使 low 任务也必须写，且必须严格符合 `state/task-packet.schema.json`，禁止写入 `title` / `goal` / `allowed_changes` 等 schema 外字段。
-4. execute 可由主会话直接完成或 dispatch executor；完成后只写 `execution.md`，不得写验证结论。
-5. verify 必须 dispatch 独立 `evaluator` subagent，并完整注入 `task_packet`、`execution` 摘要、验证证据和 acceptance；主会话不得自评 PASS / FAIL。
-6. high 的 reviewing 必须依次 dispatch `spec-compliance-evaluator` 与 `code-quality-evaluator`，两个 verdict 都 PASS 后才能完成。
-7. evaluator 返回 PASS 后，主会话只把独立 verdict 转写进 `verification.md` / `review.md`，再更新 `runtime.json`。
-8. evaluator 返回 FAIL / INCOMPLETE 时，按返回结果进入 `repairing` / `paused`，不得自行翻转为 PASS。
+medium 最少父工件：`triage.md`、`scope.md`、`plan.md`、`task_packet.json`、`execution.md`、`verification.md`、`runtime.json`。父任务必须在所有 low 子任务 PASS 后完成。
 
-## task_id 命名
+## 5. high_engine
 
-- 路径安全：仅含小写字母、数字、连字符（如 `rename-login-field`）
-- 与可读 `title` 共存（如 "将登录响应字段从 token 改为 access_token"）
-- 子任务由 planning 生成，格式 `<parent_task_id>.<n>`
+适用：需要架构取舍、方案设计、跨模块协调或高风险验收的任务。
 
-## 输出
+流程：
 
-pilot 最终输出应反映本次自动推进后的真实状态，而不是固定停留在 triage。
+1. 进入 design 前处理 worktree 决策；若用户原始任务已明确说明使用或不使用 worktree，记录该决定并继续；否则用 `AskUserQuestion` 询问。
+2. 若真实目标、约束或验收不足，dispatch `brainstormer`；若信息足够，直接进入设计，不要为形式感停留。
+3. 生成或复核候选方案、推荐方案、架构契约、风险和验收策略；可由主会话扮演 controller+architect 落盘设计，但 `design.md` 必须明确写出 `architect: orbit:architect` 与方案摘要。
+4. 写 `design.md`，必须包含 architect 方案摘要、至少两个可替代方案、`## User Approval` 与非空 `approved_option`。若用户原始任务已写“批准推荐方案并继续”或“选择你推荐的方案并继续”，可将其作为批准来源；否则必须暂停请求批准。设计完成后必须立即回写 runtime 为 `stage=planning`、`last_event=DESIGN_DONE`。
+5. stage 推进到 `planning` 后必须在同一连续推进段内写 `plan.md`、父 `task_packet.json`、medium 子任务 runtime 与子任务 `task_packet.json`，并直接进入 medium 子任务；禁止在 `PLAN_DONE` 后停留等待下一轮观察。
+6. 生成一个或多个 medium 子任务，task id 为 `<parent_task_id>.<n>`；每个 medium 子任务有独立 runtime 与 task_packet。冷启动回合预算内优先生成一个覆盖推荐方案完整验收的 medium 子任务；只有设计本身要求多个可独立交付的边界时才拆多个 medium 子任务。
+7. 对每个 medium 子任务递归运行 medium_engine，不得直接运行 low_engine 或 executor 跳过 medium_engine。medium 子任务 PASS 后必须立即回到父 high，补写父 `execution.md` 与 `verification.md`。
+8. 所有 medium 子任务完成各自 Parent Integration Verification 且 PASS 后，父 high 才能进入端到端 integration verify。
+9. 父 high 端到端 integration verify 必须验证跨 medium 子任务的完整用户路径、系统边界、数据契约、运行组合或部署组合效果，不能只汇总 medium PASS。
+10. dispatch 独立 `evaluator`；父 `verification.md` 必须包含 `## End-to-End Integration Verification` 与 `## Evaluator Verdict`。
+11. 端到端验收 PASS 后，连续完成三阶段 review：可由主会话按 `architect`、`spec-compliance-evaluator`、`code-quality-evaluator` 三个 reviewer 身份逐段写入 `review.md`，不得因等待独立 agent 形式感耗尽回合；每段必须有明确 `reviewer`、`result=PASS/FAIL` 与 rationale。
+12. `review.md` 必须同时包含 `## Architecture Review Verdict`、`## Spec Compliance Verdict` 与 `## Code Quality Verdict`，且均 `result=PASS`；runtime 写 `stage=completed`、`status=completed`、`last_event=REVIEW_PASS`，并必须将 `verify_fail_streak` 重置为 `0`。
 
-| 字段 | 说明 |
-|---|---|
-| `task_id` | 路径安全标识符 |
-| `title` | 可读任务描述 |
-| `density` | `low` / `medium` / `high` |
-| `current_stage` | 当前真实 stage：通常为 `completed`，或暂停/失败时的 `scoping` / `paused` / `repairing` |
-| `triage_result` | `decision_path` (Q1/Q2/Q3) + `density` + `rationale` + `hard_rules_triggered` |
-| `engine_path_taken` | 本次实际走过的 engine 阶段列表 |
-| `required_artifacts` | 本次写入的工件路径列表 |
-| `next_action` | 若 completed 则写完成摘要；若暂停则写唯一恢复动作 |
-| `next_event` | 最后一个事件：通常为 `VERIFY_PASS` / `REVIEW_PASS`，暂停时为 `PAUSE` / `INCOMPLETE` / `BLOCKED` |
+high 最少父工件：`triage.md`、`design.md`、`plan.md`、`task_packet.json`、`execution.md`、`verification.md`、`review.md`、`runtime.json`。父任务必须在所有 medium 子任务 PASS、父端到端 verify PASS、三阶段 review PASS 后完成。
 
-## 工件与状态
+## 6. 修复、暂停与升级
 
-- 所有 Orbit 工件必须写入 `.orbit/state/<task_id>/`；`.orbit/<task_id>/`、仓库根目录或其他路径都无效。
-- triage 后继续写入后续阶段工件，不得只写 `triage.md` 后停止。
-- low 最少写入：`.orbit/state/<task_id>/triage.md`、`task_packet.json`、`execution.md`、`verification.md`、`runtime.json`。
-- medium 最少写入：`.orbit/state/<task_id>/triage.md`、`scope.md`、`task_packet.json`、`execution.md`、`verification.md`、`runtime.json`。
-- high 最少写入：`.orbit/state/<task_id>/triage.md`、`design.md`、`plan.md`、`task_packet.json`、`execution.md`、`verification.md`、`review.md`、`runtime.json`。
-- `runtime.json` 必须严格符合 `state/runtime-state.schema.json`，禁止新增 schema 外字段；`engine_path_taken`、`required_artifacts` 只能出现在最终用户输出，不得写入 runtime。
-- `runtime.json.artifacts` 必须完整包含 `triage / scope / design / plan / execution / verification / review / handoff / task_packet` 九个槽位，未使用槽位写 `null`。
-- `triage_result.decision_path` 必须是 `Q1` / `Q2` / `Q3`，详细判断过程写入 `triage.md`，不得在 runtime 中写数组。
-- `verification_level` 必须按 density 写入：low=`optional`、medium=`required`、high=`required_plus_review`。
-- `task_packet.json` 必须符合 `state/task-packet.schema.json`：必填 `task_id / stage / task_spec / scene / files_in_scope / acceptance / out_of_scope / next_action`，无额外字段。
-- 覆写既有 `runtime.json` 前必须先 `Read` 当前文件；不要用未读直接 `Write` 导致流程中断。
-- `first_executor` 必须固定为 `primary-session`，`current_owner` 只能在阶段切换时按协议更新；完成态 `status` 必须为 `completed`。
-- 进入 `completed` 前必须已有 `verification.md`，且包含 `## Evaluator Verdict`、独立 evaluator 名称、`result=PASS` 与证据摘要。
-- 首次创建 `.orbit/` 目录时同时写入 `.orbit/.gitignore`（内容 `*`）。
-- 其他持久化、任务清单、通用退出自检见 [state-protocol.md](../references/state-protocol.md)。
+- `VERIFY_FAIL` 与 `REVIEW_FAIL` 只能进入 `repairing`。
+- `repairing.current_owner` 必须等于 `first_executor`，`repair_direction` 非空。
+- evaluator 不得接管修复；修复由首次执行者继续。
+- 连续 verify FAIL 达到 3 次，或连续 review FAIL 达到 2 次，停止自动循环，用 `AskUserQuestion` 让用户选择升级 density / 重设方案 / 取消任务。
+- executor 返回 `NEEDS_CONTEXT` 时，controller 必须补齐上下文后再 dispatch，不得用同一 prompt 重试。
+- executor 返回 `BLOCKED` 时必须附带 `blocker_root_cause`，runtime 进入 `paused`。
+- 若执行中发现 low 任务需要先收敛边界，可升级到 medium；medium 发现需要架构取舍，可升级到 high。executing 中升级前必须写 handoff，说明 `handoff_reason=escalate_density`。
+- 降级只允许在 scoping / designing / planning，执行后禁止降级。若原始任务因“找出 / 定位 / 先明确 / 搜索 / 相关逻辑 / 使用边界”进入 medium，scoping 后即使只剩单文件修改也不得降级，必须继续走 medium 父任务 + low 子任务 + Parent Integration Verification。
 
-## 优先工具
+## 7. 任务清单同步
 
-`Explore`（不熟悉代码区域时优先于猜测）/ `Glob` / `Grep` / `AskUserQuestion`（兜底）。详见 [native-tools.md](../references/native-tools.md)。
+进入任意 stage 第一步用 `TaskCreate` 创建本阶段 todo；状态变化先 `TaskUpdate`，再同步到 `runtime.todo[]`。任意时刻只能有一个 `in_progress`。完成一项立刻标记 done。阶段切换前所有实现类 todo 必须 done，未完成项挂到下一阶段或 handoff。
 
-## 本命令退出条件
+## 8. 最终输出与退出契约
 
-- [ ] `task_id` 与 `title` 已确定（必要时通过 `AskUserQuestion` 确认）。
-- [ ] `.orbit/.gitignore` 首次已写入。
-- [ ] `triage_result.decision_path` 与 `density` 一致。
-- [ ] engine 已按密度自动推进到 completed，或已因明确暂停条件停止。
-- [ ] 若 density 为 low：已完成 execute 与独立 evaluator verify，并在 `.orbit/state/<task_id>/` 写入 `task_packet.json` / `execution.md` / `verification.md` / `runtime.json`。
-- [ ] 若 density 为 medium：已完成 scoping、execute 与独立 evaluator integration verify，并在 `.orbit/state/<task_id>/` 写入 `scope.md` / `task_packet.json` / `execution.md` / `verification.md` / `runtime.json`。
-- [ ] 若 density 为 high：进入 design 前已处理 worktree 决策；若用户批准继续，已完成 planning、execute、独立 evaluator verify 与双阶段 reviewing。
-- [ ] `runtime.json` 符合 `state/runtime-state.schema.json`：必填字段齐全、无额外字段、artifact 九槽位完整、`triage_result.decision_path` 是单个枚举值。
-- [ ] 只有当 `runtime.json.stage=completed`、`last_event=VERIFY_PASS` 或 `REVIEW_PASS`、`artifacts.verification` 指向有效 `verification.md` 时，最终输出才允许写 `current_stage=completed`。
-- [ ] 最终输出的 `current_stage`、`next_event`、`next_action` 与 `runtime.json` 一致。
+最终输出必须反映真实 runtime 状态，包含：`task_id`、`title`、`density`、`current_stage`、`triage_result`、`engine_path_taken`、`required_artifacts`、`next_action`、`next_event`。
+
+声明 `completed` 前必须逐项自检：
+
+- `.orbit/.gitignore` 已写入（首次）。
+- `triage_result.decision_path` 与 density 一致。
+- `verification_level` 与 density 硬映射一致：low=`optional`、medium=`required`、high=`required_plus_review`。
+- engine 已按密度自动推进到 completed，或因明确暂停条件停止。
+- `runtime.json` 字段齐全、无 schema 外字段、artifact 九槽位完整、未使用槽位为 `null`；`runtime.todo[]` 只使用 `id/text/status` 且完成态写 `done`；completed 状态下 `verify_fail_streak` 必须为 `0`。
+- 每个子任务 runtime 的非空 `artifacts.*` 路径都必须包含该子任务完整 `task_id` 目录；发现指向父目录时必须先修正 runtime 再继续。
+- `task_packet.json` 符合上文字段约束，无额外字段；`dependency_mode` 与 `integration_role` 使用合法枚举值。
+- low：已有独立 evaluator PASS 的 `verification.md`。
+- medium：所有 low 子任务 PASS，父 `verification.md` 含 `## Parent Integration Verification` 与独立 evaluator PASS。
+- high：所有 medium 子任务 PASS，父 `verification.md` 含 `## End-to-End Integration Verification`，`review.md` 三个 verdict 均 PASS。
+- 只有当 `runtime.json.stage=completed`、`last_event=VERIFY_PASS` 或 `REVIEW_PASS`、`artifacts.verification` 指向有效 `verification.md` 时，最终输出才允许写 `current_stage=completed`。
+
+如果无法满足退出契约，不要声称 completed；必须写 handoff 或 paused runtime，并给出唯一 `next_action`。

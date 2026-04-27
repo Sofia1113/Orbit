@@ -16,9 +16,12 @@
     "only_external_slash_command": true,
     "engine_stage_values_forbidden": ["low_engine", "medium_engine", "high_engine"],
     "low_engine": ["executing", "verifying"],
-    "medium_engine": ["scoping", "low_engine", "integration_verify"],
-    "high_engine": ["worktree_decision", "designing", "planning", "medium_engine", "integration_verify", "reviewing"],
+    "medium_engine": ["discovery", "scoping", "spawn_low_subtasks", "run_low_engine", "aggregate_low_results", "integration_verify"],
+    "high_engine": ["worktree_decision", "discovery", "architect_design", "planning", "spawn_medium_subtasks", "run_medium_engine", "aggregate_medium_results", "end_to_end_integration_verify", "architecture_review", "reviewing"],
+    "engine_execution_model": "recursive_internal_workflow_not_agent",
     "high_requires_worktree_decision_before_design": true,
+    "medium_high_discovery_agent": "brainstormer",
+    "high_architecture_agent": "architect",
     "default_automation": "must_advance_until_completed_or_user_decision_blocker_or_failure_limit"
   },
 
@@ -58,8 +61,13 @@
         "VERIFY_PASS 或 VERIFY_FAIL 前必须已有 verification artifact",
         "VERIFY_PASS / VERIFY_FAIL 必须由独立 evaluator subagent 返回，不得由 verify 阶段自评",
         "VERIFY_PASS 前 verification.md 必须包含 ## Evaluator Verdict 锚点且 result=PASS",
-        "REVIEW_PASS 必须经过 spec-compliance 与 code-quality 两阶段 evaluator 均 PASS",
-        "REVIEW_PASS 前 review.md 必须同时包含 ## Spec Compliance Verdict 与 ## Code Quality Verdict 锚点且均 result=PASS",
+        "high_engine 的 design 必须由 architect 产出或复核，DESIGN_DONE 前 design.md 必须包含 architect 方案摘要",
+        "medium/high 在需求或边界不足时必须先 dispatch brainstormer，不得跳过真实需求发现直接设计或拆任务",
+        "medium density 必须由内部 medium_engine workflow 拆成一个或多个 low_engine 子任务，并在全部 low 子任务 PASS 后执行父级 integration verify",
+        "high density 必须由内部 high_engine workflow 拆成一个或多个 medium_engine 子任务，并在全部 medium 子任务 integration verify PASS 后执行父级端到端 integration verify",
+        "父任务 integration verify 必须由独立 evaluator subagent 返回 PASS，禁止用子任务 PASS 汇总替代父级验收",
+        "REVIEW_PASS 必须经过 architect architecture review、spec-compliance 与 code-quality 三阶段 evaluator 均 PASS",
+        "REVIEW_PASS 前 review.md 必须同时包含 ## Architecture Review Verdict、## Spec Compliance Verdict 与 ## Code Quality Verdict 锚点且均 result=PASS",
         "HANDOFF_SAVED 前必须提供 next_action 与 handoff artifact，且不得改变当前 stage",
         "dispatch subagent 前 controller 必须完整注入 task_packet + scene，禁止让 subagent 读文件",
         "DOWNGRADE_DENSITY 只能在 scoping / designing / planning 期间发起",
@@ -122,6 +130,24 @@
     "task_id_convention": "<parent_task_id>.<n>",
     "require_injected_task_packet": true,
     "parent_cannot_complete_before_all_subtasks_verified": true,
+    "medium_parent_must_spawn_low_engine_subtasks": true,
+    "high_parent_must_spawn_medium_engine_subtasks": true,
+    "medium_parent_must_run_integration_verify_after_low_subtasks": true,
+    "high_parent_must_run_end_to_end_integration_verify_after_medium_subtasks": true,
+    "parent_integration_verify_requires_independent_evaluator": true,
+    "high_parent_must_run_architecture_review_after_integration_verify": true,
+    "parallel_dispatch_allowed_when_independent": true,
+    "parallel_independence_requires": [
+      "子任务 files_in_scope 不重叠",
+      "子任务之间不存在必须先后执行的数据迁移或接口契约依赖",
+      "每个子任务拥有独立 runtime.json 与 task_packet.json",
+      "父任务 plan.md 明确记录并行安全理由"
+    ],
+    "parallel_dispatch_forbidden_when": [
+      "共享同一文件或同一公共接口",
+      "一个子任务的 acceptance 依赖另一个子任务的输出",
+      "存在数据库迁移、生成文件或全局配置的写入冲突"
+    ],
     "failed_subtask_repair_scope": "only_failed_subtask",
     "aggregation_source": "runtime.todo plus SUBTASK_COMPLETED events"
   },
@@ -148,7 +174,8 @@
 
   "evaluator_dispatch_rules": {
     "verify_requires_independent_evaluator": true,
-    "review_requires_two_stage_evaluator": ["spec_compliance", "code_quality"],
+    "review_requires_three_stage_evaluator": ["architecture", "spec_compliance", "code_quality"],
+    "architecture_review_requires_architect": true,
     "evaluator_cannot_repair": true,
     "repair_owner_must_equal_first_executor": true,
     "consecutive_review_fail_limit": 2

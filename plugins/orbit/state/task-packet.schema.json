@@ -31,6 +31,16 @@
       "type": ["integer", "null"],
       "minimum": 1,
       "description": "当为子任务时的序号（<parent>.<n> 中的 n）"
+    },
+    "dependency_mode": {
+      "enum": ["parallel", "serial", "mixed", "none"],
+      "default": "none",
+      "description": "父 engine 规划的执行依赖模式；兄弟子任务并行前必须在 plan.md 说明安全理由"
+    },
+    "integration_role": {
+      "enum": ["leaf", "parent_integration", "end_to_end_integration"],
+      "default": "leaf",
+      "description": "leaf=普通子任务；parent_integration=medium 父级集成验收；end_to_end_integration=high 父级端到端验收"
     }
   },
   "additionalProperties": false,
