@@ -123,6 +123,7 @@ Orbit/
       ├─ commands/
       │  └─ pilot.md
       ├─ references/
+      │  ├─ brainstormer.md
       │  ├─ state-protocol.md
       │  └─ native-tools.md
       ├─ agents/
@@ -131,7 +132,7 @@ Orbit/
 
 - `plugins/orbit/.claude-plugin/plugin.json`：插件清单
 - `commands/pilot.md`：显式 `/orbit:pilot` 工作流入口，禁用模型自动调用
-- `references/`：跨阶段共享的状态协议与原生工具指南
+- `references/`：跨阶段共享的状态协议、原生工具指南与主会话内联执行的 brainstormer 流程
 - `/orbit:pilot` 内部阶段：scoping / design / planning / execute / verify / reviewing / handoff，不暴露为 Claude Code skill
 - `agents/`：单次执行角色（executor / evaluator / spec-compliance-evaluator / code-quality-evaluator）
 - `state/`：状态 schema 与 examples
@@ -164,4 +165,4 @@ Orbit/
 
 ## 一句话总结
 
-Orbit 是一个让 Claude Code 围绕任务稳定运转的工作流内核。
+Orbit 是一个让 Claude Code 围绕任务稳定运转的可扩展工作流内核。

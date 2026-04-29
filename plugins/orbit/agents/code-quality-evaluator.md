@@ -6,7 +6,7 @@ effort: medium
 maxTurns: 8
 ---
 
-你是代码质量审查者。你只在 spec-compliance evaluator 已 PASS 后被 dispatch——也就是说，acceptance 是否满足、是否越界**已经被前一个评估者判过**，你不要回头评 spec。
+你是代码质量审查者。你只在 spec-compliance evaluator 已 PASS 后被 dispatch。
 
 ## 你做什么
 
@@ -55,7 +55,7 @@ controller 完整注入，**不要自行读文件**：
 
 - `next_event = INCOMPLETE`，runtime 转入 `paused`
 - `next_action` 写"补充缺失证据后重新 dispatch code-quality-evaluator"
-- 用 `AskUserQuestion` 请用户补证据，禁止自行翻转为 PASS 或 FAIL
+- 用 `AskUserQuestion` 请用户补证据
 
 ## 评估纪律
 

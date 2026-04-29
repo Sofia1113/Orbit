@@ -37,7 +37,7 @@
 
 ## runtime.json
 
-`runtime.json` 必须严格符合 `state/runtime-state.schema.json`，禁止写入 schema 外字段。面向用户的 `engine_path_taken`、`required_artifacts`、详细决策轨迹等只出现在最终输出或 markdown 工件中，不进入 runtime。
+`runtime.json` 严格符合 `state/runtime-state.schema.json`。`engine_path_taken`、`required_artifacts`、详细决策轨迹等只出现在最终输出或 markdown 工件中。
 
 每个阶段结束时回写以下字段：
 
@@ -87,7 +87,7 @@ pilot 首次写入 runtime 的最小模板：
 
 ## 自动推进与用户打断
 
-默认规则：只要当前阶段已产出必需工件，且没有用户决策点、阻塞或评估失败，controller 必须沿 `next_action` 自动推进；不得把 `TRIAGE_DONE` 当作用户可见终点。low / medium 的常规任务应在同一次 `/orbit:pilot` 调用中推进到 `completed`。
+默认规则：只要当前阶段已产出必需工件，且没有用户决策点、阻塞或评估失败，controller 沿 `next_action` 自动推进到该密度的自然完成点。
 
 必须暂停并询问用户的决策点：
 
@@ -139,7 +139,7 @@ pilot 首次写入 runtime 的最小模板：
 规则：
 
 1. 进入任意 stage 第一步用 `TaskCreate` 创建本阶段所有 todo，结果回写到 `runtime.todo[]`
-2. 状态变化先 `TaskUpdate` 改会话投影，再同步 `runtime.todo[]`，不允许只改其一
+2. 状态变化先 `TaskUpdate` 改会话投影，再同步 `runtime.todo[]`
 3. 任意时刻只能有一个 `in_progress`
 4. 完成一项立刻 `TaskUpdate` 置 `done`；evaluator 返回的 `repair_actions` 逐条 `TaskCreate` 追加为新 todo
 5. 后续会话恢复时由 `runtime.todo[]` 反向重建会话任务列表；冲突以 `runtime.todo[]` 为准
@@ -157,11 +157,6 @@ pilot 首次写入 runtime 的最小模板：
 - handoff 也不改变 `first_executor`，只改变 `current_owner` 与 `next_action`
 - 新会话恢复同一任务时默认承接 `first_executor="primary-session"` 角色，可在 `repairing` 阶段合法承担修复
 - 仅当用户显式声明换主时才更新 `first_executor`，并在 `triage_result.hard_rules_triggered` 或 `repair_direction` 中记录原因
-
-禁止：
-
-- 不得把 transient ID（时间戳、PID）写入 `first_executor`
-- 不得在 dispatch subagent 时把 subagent handle 写为 `first_executor`
 
 ## 恢复优先级
 
@@ -213,6 +208,6 @@ handoff.json
 - [ ] 原生任务清单已与 `runtime.todo[]` 同步（实现类 todo 已 `done`，未完成项挂到下一阶段或 handoff）
 - [ ] `first_executor == "primary-session"` 未被改动
 - [ ] 处于 `repairing` 时 `current_owner == first_executor` 且 `repair_direction` 非空
-- [ ] 不依赖外部 validator；按本协议逐项自检路径、工件、runtime 字段与阶段事件一致
+- [ ] 按本协议逐项自检路径、工件、runtime 字段与阶段事件一致
 
 各阶段在此基础上加自己的特有退出条件（如 design 必须含 `## User Approval`、verify 必须含 `## Evaluator Verdict`）。

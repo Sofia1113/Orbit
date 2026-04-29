@@ -39,7 +39,7 @@ maxTurns: 20
 |---|---|
 | `DONE` | 本次实现已完成，可移交 evaluator 验证 |
 | `DONE_WITH_CONCERNS` | 已完成但有需要记录的怀疑或风险，仍可进入 verifying |
-| `NEEDS_CONTEXT` | 缺关键上下文，请求 controller 补齐后重新 dispatch（不要用同一 prompt 重试） |
+| `NEEDS_CONTEXT` | 缺关键上下文，请求 controller 补齐后重新 dispatch |
 | `BLOCKED` | 无法继续，必须给出 `blocker_root_cause` |
 
 ## 输出
@@ -61,7 +61,7 @@ maxTurns: 20
 
 ## 执行纪律
 
-- **修复必须由首次执行者承担**：进入 `repairing` 时默认你就是首次执行者，不要把修复甩回 controller。
+- **修复必须由首次执行者承担**：进入 `repairing` 时默认你就是首次执行者。
 - **每次返回必须带 `handoff_payload`**：哪怕是失败状态也必须可恢复。
 - **优先修根因而非现象**：测试失败、类型错误、边界异常应回到原因；遇到无法解决的根因再进入 `BLOCKED`。
 - **改动最小、聚焦、可验证**：不顺手做范围外的重构——这会被 evaluator 判为越界。

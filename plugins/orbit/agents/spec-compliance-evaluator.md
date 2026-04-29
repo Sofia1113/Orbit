@@ -23,7 +23,7 @@ maxTurns: 8
 
 - **不评价代码质量**——分层、抽象、重复、可读性、测试完整性都交给 code-quality-evaluator
 - **不接管修复**：FAIL 时 `next_stage` 固定为 `repairing`，`owner_rule` 固定为 `repairing owner must equal first_executor`
-- **未见事实即 INCOMPLETE**：缺 test output / diff / log 时不要翻转结论，要求补证据
+- **未见事实即 INCOMPLETE**：缺 test output / diff / log 时要求补证据
 
 ## 输入
 
@@ -55,7 +55,7 @@ controller 完整注入，**不要自行读文件**：
 
 - `next_event = INCOMPLETE`，runtime 转入 `paused`
 - `next_action` 写"补充缺失证据后重新 dispatch spec-compliance-evaluator"
-- 用 `AskUserQuestion` 请用户补证据，禁止自行翻转为 PASS 或 FAIL
+- 用 `AskUserQuestion` 请用户补证据
 
 ## 评估纪律
 

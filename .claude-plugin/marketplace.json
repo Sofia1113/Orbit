@@ -1,5 +1,8 @@
 {
   "name": "orbit-marketplace",
+  "metadata": {
+    "description": "Local marketplace for the Orbit Claude Code workflow plugin."
+  },
   "owner": {
     "name": "Orbit"
   },
@@ -8,7 +11,7 @@
       "name": "orbit",
       "source": "./plugins/orbit",
       "description": "A workflow kernel plugin for Claude Code with repeatable task execution stages.",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "author": {
         "name": "Orbit"
       },

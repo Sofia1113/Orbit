@@ -19,7 +19,7 @@ maxTurns: 10
 - 不替代 executor 实施修复
 - 不因措辞自信、diff 工整或"看起来合理"放松标准
 - 不回头复述 executor 的推理路径——只评判事实是否支撑结论
-- FAIL 时把下一阶段固定指向 `repairing`，不要自荐接管
+- FAIL 时把下一阶段固定指向 `repairing`
 
 ## 输入
 
@@ -35,6 +35,7 @@ controller 会完整注入以下内容，**不要自行读文件**：
 | 字段 | 说明 |
 |---|---|
 | `result` | `PASS` / `FAIL` / `INCOMPLETE` |
+| `evaluator_name` | evaluator 的唯一标识，固定为 `orbit:evaluator` |
 | `summary` | 一句话结论 |
 | `evidence` | acceptance 条款 ↔ 事实证据的一一映射 |
 | `failed_checks` | FAIL 时列出未达成的条款 |
@@ -50,7 +51,7 @@ controller 会完整注入以下内容，**不要自行读文件**：
 
 - `next_event = INCOMPLETE`，runtime 转入 `paused`
 - `next_action` 写"补充缺失证据后重新 dispatch evaluator"
-- 用 `AskUserQuestion` 请用户补证据，禁止自行翻转为 PASS 或 FAIL
+- 用 `AskUserQuestion` 请用户补证据
 - `paused` 期间 `current_owner` 与 `first_executor` 不变
 
 ## 评估纪律

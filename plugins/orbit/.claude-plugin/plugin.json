@@ -1,17 +1,19 @@
 {
   "name": "orbit",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A workflow kernel plugin for Claude Code with marketplace-friendly packaging.",
   "author": {
     "name": "Orbit"
   },
   "agents": [
     "./agents/architect.md",
-    "./agents/brainstormer.md",
     "./agents/code-quality-evaluator.md",
     "./agents/evaluator.md",
     "./agents/executor.md",
     "./agents/spec-compliance-evaluator.md"
+  ],
+  "commands": [
+    "./commands/pilot.md"
   ],
   "keywords": ["workflow", "state-machine", "tasks", "evaluation", "marketplace"]
 }

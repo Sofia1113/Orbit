@@ -43,7 +43,6 @@
     "next_action": { "type": "string", "minLength": 1 },
     "last_event": {
       "enum": [
-        "TASK_CREATED",
         "TRIAGE_DONE",
         "SCOPE_DONE",
         "DESIGN_DONE",
@@ -106,15 +105,15 @@
         "task_packet"
       ],
       "properties": {
-        "triage": { "type": ["string", "null"] },
-        "scope": { "type": ["string", "null"] },
-        "design": { "type": ["string", "null"] },
-        "plan": { "type": ["string", "null"] },
-        "execution": { "type": ["string", "null"] },
-        "verification": { "type": ["string", "null"] },
-        "review": { "type": ["string", "null"] },
-        "handoff": { "type": ["string", "null"] },
-        "task_packet": { "type": ["string", "null"] }
+        "triage": { "oneOf": [{"type": "null"}, {"type": "string", "pattern": "^\\.orbit/state/[a-z0-9.-]+/[\\w-]+\\.(json|md)$"}] },
+        "scope": { "oneOf": [{"type": "null"}, {"type": "string", "pattern": "^\\.orbit/state/[a-z0-9.-]+/[\\w-]+\\.(json|md)$"}] },
+        "design": { "oneOf": [{"type": "null"}, {"type": "string", "pattern": "^\\.orbit/state/[a-z0-9.-]+/[\\w-]+\\.(json|md)$"}] },
+        "plan": { "oneOf": [{"type": "null"}, {"type": "string", "pattern": "^\\.orbit/state/[a-z0-9.-]+/[\\w-]+\\.(json|md)$"}] },
+        "execution": { "oneOf": [{"type": "null"}, {"type": "string", "pattern": "^\\.orbit/state/[a-z0-9.-]+/[\\w-]+\\.(json|md)$"}] },
+        "verification": { "oneOf": [{"type": "null"}, {"type": "string", "pattern": "^\\.orbit/state/[a-z0-9.-]+/[\\w-]+\\.(json|md)$"}] },
+        "review": { "oneOf": [{"type": "null"}, {"type": "string", "pattern": "^\\.orbit/state/[a-z0-9.-]+/[\\w-]+\\.(json|md)$"}] },
+        "handoff": { "oneOf": [{"type": "null"}, {"type": "string", "pattern": "^\\.orbit/state/[a-z0-9.-]+/[\\w-]+\\.(json|md)$"}] },
+        "task_packet": { "oneOf": [{"type": "null"}, {"type": "string", "pattern": "^\\.orbit/state/[a-z0-9.-]+/[\\w-]+\\.(json|md)$"}] }
       },
       "additionalProperties": false
     },

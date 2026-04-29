@@ -21,11 +21,12 @@ plugins/orbit/
 │  └─ pilot.md               # 显式 /orbit:pilot 入口，禁用模型自动调用
 ├─ references/
 │  ├─ triage-density.md      # density 判定规则
+│  ├─ brainstormer.md        # 主会话 controller 内联执行的需求发现流程
 │  ├─ pilot-contract.md      # pilot 输出、工件与退出契约
 │  ├─ state-protocol.md      # 状态目录、runtime.json、artifacts、任务清单、跨会话恢复
 │  ├─ engine-low.md / engine-medium.md / engine-high.md
 │  └─ native-tools.md        # Claude Code 原生工具集成指南
-├─ agents/                   # brainstormer / architect / executor / evaluator / review evaluators
+├─ agents/                   # architect / executor / evaluator / review evaluators
 └─ state/                    # 运行时 schema + rules + examples
 ```
 
@@ -34,8 +35,8 @@ plugins/orbit/
 从 `/orbit:pilot` 开始。`/orbit:pilot` 是唯一外部斜杠命令入口，已禁用模型自动调用；普通工程任务不会因为插件存在而自动进入 Orbit。pilot 只回答一个问题：这次任务该走多重的流程？
 
 - 已知小改动 → `low_engine`：直接执行，再做轻量独立验证
-- 目标明确但边界未知 → `medium_engine`：必要时先由 `brainstormer` 做需求发现，再收敛 in_scope / out_of_scope / acceptance，拆成一个或多个可并行的 `low_engine`，最后做集成验证
-- 需要方案取舍或架构判断 → `high_engine`：先询问是否使用 `git worktree`，必要时由 `brainstormer` 发现真实需求，再由 `architect` 设计、规划、拆成一个或多个可并行的 `medium_engine`，最后做端到端集成验证、架构评审与审查
+- 目标明确但边界未知 → `medium_engine`：主会话 controller 必须按 `references/brainstormer.md` 做交互式需求发现，再收敛 in_scope / out_of_scope / acceptance，拆成一个或多个可并行的 `low_engine`，最后做集成验证
+- 需要方案取舍或架构判断 → `high_engine`：先询问是否使用 `git worktree`，主会话 controller 必须按 `references/brainstormer.md` 发现真实需求，再由 `architect` 设计、规划、拆成一个或多个可并行的 `medium_engine`，最后做端到端集成验证、架构评审与审查
 
 用户在使用 Orbit 时应始终能看到三件事：当前阶段在解决什么问题、失败后有哪些选择、下一步唯一动作是什么。
 
@@ -59,7 +60,7 @@ plugins/orbit/
 - `medium_engine`：内部工作流，递归运行一个或多个 `low_engine` 并做父级 integration verify；完整内容见 `references/engine-medium.md`
 - `high_engine`：内部工作流，递归运行一个或多个 `medium_engine` 并做端到端 integration verify 与 review；完整内容见 `references/engine-high.md`
 - `scoping` / `design` / `planning` / `execute` / `verify` / `reviewing` / `handoff`：命令内部阶段，由 `/orbit:pilot` 与 engine 状态推进，不暴露为 Claude Code skill
-- `brainstormer` (subagent)：medium/high 的多阶段需求发现与交互式头脑风暴
+- `brainstormer`：medium/high 的多阶段需求发现与交互式头脑风暴，由主会话 controller 通过 `references/brainstormer.md` 内联执行，不注册为 agent / subagent / skill
 - `architect` (subagent)：high 的系统架构设计与架构评审
 - `executor` (subagent)：单次任务实现执行者
 - `evaluator` (subagent)：verify 阶段独立评估者
