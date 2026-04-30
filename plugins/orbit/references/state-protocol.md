@@ -4,6 +4,8 @@
 
 ## 任务状态目录
 
+状态根目录固定为 `/orbit:pilot` 启动时所在仓库根目录下的 `.orbit/`。即使任务实现目标位于子目录（例如 `test-harness/<fixture>/`、`packages/<name>/`、`apps/<name>/`），也禁止在该子目录内创建或写入 `.orbit/`。
+
 每个任务对应一个独立目录：
 
 ```
@@ -113,7 +115,7 @@ pilot 首次写入 runtime 的最小模板：
 
 ## artifacts 槽位
 
-所有工件都必须位于 `.orbit/state/<task_id>/`；`.orbit/<task_id>/`、仓库根目录或其他路径都不是合法状态目录。
+所有工件都必须位于 `/orbit:pilot` 启动仓库根目录的 `.orbit/state/<task_id>/`；`.orbit/<task_id>/`、仓库根目录、任务实现子目录下的 `.orbit/` 或其他路径都不是合法状态目录。
 
 `artifacts` 对象必须始终包含完整九槽位；即使当前 density 不使用某槽位，也必须显式写 `null`。
 
